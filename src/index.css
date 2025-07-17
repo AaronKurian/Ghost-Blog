@@ -228,3 +228,92 @@ body {
   border-radius: 0.5rem;
   margin: 1em 0;
 }
+
+/* Override for HTML embeds with data-raw-html attribute */
+[data-raw-html="true"] * {
+  all: unset !important;
+  display: revert !important;
+  color: revert !important;
+  font-family: inherit !important;
+  font-size: revert !important;
+  font-weight: revert !important;
+  text-decoration: revert !important;
+  margin: revert !important;
+  padding: revert !important;
+  background: revert !important;
+  border: revert !important;
+}
+
+[data-raw-html="true"] p {
+  display: block !important;
+  margin: 1em 0 !important;
+}
+
+[data-raw-html="true"] div {
+  display: block !important;
+}
+
+[data-raw-html="true"] span {
+  display: inline !important;
+}
+
+[data-raw-html="true"] h1, 
+[data-raw-html="true"] h2, 
+[data-raw-html="true"] h3,
+[data-raw-html="true"] h4, 
+[data-raw-html="true"] h5, 
+[data-raw-html="true"] h6 {
+  display: block !important;
+  font-weight: bold !important;
+}
+
+/* Specifically ensure inline styles work */
+[data-raw-html="true"] *[style] {
+  all: unset !important;
+  display: revert !important;
+}
+
+[data-raw-html="true"] p[style] {
+  display: block !important;
+  margin: 1em 0 !important;
+}
+
+/* Nuclear option - override ALL prose styles for raw HTML */
+.prose [data-raw-html="true"] *,
+.prose-lg [data-raw-html="true"] *,
+.ProseMirror [data-raw-html="true"] * {
+  all: unset !important;
+  display: revert !important;
+  color: revert !important;
+  font-family: inherit !important;
+  font-size: revert !important;
+  font-weight: revert !important;
+  text-decoration: revert !important;
+  margin: revert !important;
+  padding: revert !important;
+  background: revert !important;
+  border: revert !important;
+}
+
+.prose [data-raw-html="true"] p,
+.prose-lg [data-raw-html="true"] p,
+.ProseMirror [data-raw-html="true"] p {
+  display: block !important;
+  margin: 1em 0 !important;
+}
+
+.html-embed * {
+  all: unset !important;
+  display: revert !important;
+  color: revert !important;
+  font-size: revert !important;
+  font-weight: revert !important;
+  text-decoration: revert !important;
+  margin: revert !important;
+  padding: revert !important;
+}
+
+.html-embed p {
+  display: block !important;
+  margin: 1em 0 !important;
+}

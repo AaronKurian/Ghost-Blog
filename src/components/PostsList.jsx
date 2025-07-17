@@ -11,8 +11,14 @@ import {
 } from 'lucide-react';
 
 const formatRelativeTime = (dateString) => {
+  if (!dateString) return 'Unknown';
+  
   const now = new Date();
   const date = new Date(dateString);
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) return 'Unknown';
+  
   const diffInMs = now - date;
   const diffInMins = Math.floor(diffInMs / (1000 * 60));
   const diffInHours = Math.floor(diffInMins / 60);
@@ -114,7 +120,7 @@ const PostsList = () => {
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>{formatRelativeTime(post.updatedAt)}</span>
+                      <span>{formatRelativeTime(post.updatedAt || post.createdAt || new Date().toISOString())}</span>
                     </div>
                   </div>
                 </div>

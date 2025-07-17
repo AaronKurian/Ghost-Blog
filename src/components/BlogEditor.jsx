@@ -8,7 +8,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import Underline from '@tiptap/extension-underline';
 import { addPost, updatePost, setCurrentPost, setLastSaved } from '../store/postsSlice';
 import { BookmarkExtension } from '../extensions/BookmarkExtension';
 import { RawHTMLExtension } from '../extensions/RawHTMLExtension';
@@ -17,6 +16,8 @@ import FloatingToolbar from './FloatingToolbar';
 import FloatingPlusMenu from './FloatingPlusMenu';
 import { AiOutlineCloudUpload } from "react-icons/ai";
 import { ChevronLeft, PanelRight } from 'lucide-react';
+import { ImageStorage } from '../utils/imageStorage';
+import CustomModal from './CustomModal';
 
 // Simple YouTube embed function
 const createYouTubeEmbed = (url) => {
@@ -99,12 +100,46 @@ const BlogEditor = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasInitialContent, setHasInitialContent] = useState(false);
   const [coverImage, setCoverImage] = useState(null);
-  
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    placeholder: '',
+    type: 'text',
+    onSubmit: null,
+    error: null
+  });
+
   const editorRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const autosaveRef = useRef(null);
   const postInitializedRef = useRef(false);
-  const editorContentSetRef = useRef(false); // Track if editor content has been set
+  const editorContentSetRef = useRef(false);
+  const editorReadyRef = useRef(false);
+
+  // Modal functions
+  const openModal = (title, placeholder, onSubmit, type = 'text') => {
+    setModalConfig({
+      isOpen: true,
+      title,
+      placeholder,
+      type,
+      onSubmit,
+      error: null
+    });
+  };
+
+  const closeModal = () => {
+    setModalConfig(prev => ({ ...prev, isOpen: false, error: null }));
+  };
+
+  const handleModalSubmit = (value) => {
+    try {
+      modalConfig.onSubmit(value);
+      closeModal();
+    } catch (error) {
+      setModalConfig(prev => ({ ...prev, error: error.message }));
+    }
+  };
 
   // Initialize or find post
   useEffect(() => {
@@ -115,67 +150,77 @@ const BlogEditor = () => {
           title: '',
           excerpt: '',
           content: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
           status: 'draft',
           coverImage: null,
-          author: 'Admin',
-          readTime: '1 min read',
-          tags: []
+          coverImageId: null, // NEW: Store cover image ID
+          imageIds: []
         };
         dispatch(setCurrentPost(newPost));
         setPostTitle('');
         postInitializedRef.current = true;
-        editorContentSetRef.current = false; // Reset for new post
+        editorContentSetRef.current = false;
         setIsInitialized(false);
       }
     } else {
       const post = posts.find(p => p.id === parseInt(id));
       if (post) {
         if (!postInitializedRef.current) {
-          dispatch(setCurrentPost(post));
+          const postWithImageIds = {
+            ...post,
+            imageIds: post.imageIds || [],
+            coverImageId: post.coverImageId || null
+          };
+          dispatch(setCurrentPost(postWithImageIds));
           setPostTitle(post.title);
           postInitializedRef.current = true;
-          editorContentSetRef.current = false; // Reset for existing post
+          editorContentSetRef.current = false;
           setIsInitialized(false);
         }
       } else {
         navigate('/');
       }
     }
-  }, [id, isNew, posts, navigate, dispatch]);
+  }, [id, isNew, navigate, dispatch]);
 
   // Reset initialization when route changes
   useEffect(() => {
     postInitializedRef.current = false;
     editorContentSetRef.current = false;
+    editorReadyRef.current = false; // FIXED: Reset editor ready flag too
   }, [id]);
 
-  // Autosave function - NO setCurrentPost calls to prevent re-renders
+  // Enhanced autosave function - FIXED to prevent duplicates
   const autosave = throttle(2000, (title, content) => {
     if (currentPost && editor && isInitialized) {
-      const excerpt = editor.getText().substring(0, 160);
+      const excerpt = editor.getText().substring(0, 300);
       const finalExcerpt = excerpt.length > 0 ? excerpt + '...' : '';
+      const imageIds = extractImageIds(content);
       
       const updatedPost = {
         ...currentPost,
         title: title || 'Untitled Post',
         content,
         excerpt: finalExcerpt,
-        updatedAt: new Date().toISOString()
+        imageIds
       };
       
       const hasRealContent = title.trim().length > 0 || editor.getText().trim().length > 0;
       
       if (isNew) {
         if (hasRealContent) {
-          const existingPost = posts.find(p => p.id === currentPost.id);
+          const currentPosts = posts;
+          const existingPost = currentPosts.find(p => p.id === currentPost.id);
+          
           if (!existingPost) {
-            // Mark that we're adding the post to prevent content reset
-            const currentContentSet = editorContentSetRef.current;
+            const contentSetFlag = editorContentSetRef.current;
+            const postInitFlag = postInitializedRef.current;
+            
             dispatch(addPost(updatedPost));
-            // Restore the content set flag immediately after dispatch
-            editorContentSetRef.current = currentContentSet;
+            
+            setTimeout(() => {
+              editorContentSetRef.current = contentSetFlag;
+              postInitializedRef.current = postInitFlag;
+            }, 0);
           } else {
             dispatch(updatePost(updatedPost));
           }
@@ -188,71 +233,126 @@ const BlogEditor = () => {
     }
   });
 
-  // Handle selection change - fixed positioning logic
-  const handleSelectionChange = (editor) => {
-    if (!editor) return;
+  // FIXED: Extract media IDs from content (images + youtube + html)
+  const extractImageIds = (htmlContent) => {
+    const imageIds = [];
     
-    try {
-      const { selection } = editor.state;
-      const { from, to } = selection;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    
+    const allImages = doc.querySelectorAll('img');
+    
+    const youtubeEmbeds = doc.querySelectorAll('div[data-media-type="youtube"], iframe[data-youtube-id]');
+    
+    youtubeEmbeds.forEach((embed, index) => {
+      const youtubeId = embed.getAttribute('data-media-id') || embed.getAttribute('data-youtube-id');
+      if (youtubeId) {
+        imageIds.push(youtubeId);
+      }
+    });
+    
+    const htmlEmbeds = doc.querySelectorAll('div[data-raw-html="true"], div[data-media-type="html"]');
+    
+    htmlEmbeds.forEach((embed, index) => {
+      const htmlId = embed.getAttribute('data-media-id');
+      if (htmlId) {
+        imageIds.push(htmlId);
+      }
+    });
+    
+    const images = doc.querySelectorAll('img[data-image-id], img[data-image-name]');
+    
+    images.forEach(img => {
+      const imageId = img.getAttribute('data-image-id') || img.getAttribute('data-image-name');
+      if (imageId) {
+        imageIds.push(imageId);
+      }
+    });
+    
+    if (imageIds.length === 0 && allImages.length > 0) {
+      const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
       
-      if (from === to) {
-        // Cursor position - check if current line has content
-        const $from = selection.$from;
-        const currentLineText = $from.parent.textContent || '';
-        const hasContentOnLine = currentLineText.trim().length > 0;
-        
-        // Show plus menu if current line is empty or only whitespace
-        if (!hasContentOnLine) {
-          const coords = editor.view.coordsAtPos(from);
-          const editorElement = editor.view.dom;
-          const editorRect = editorElement.getBoundingClientRect();
-          
-          // Get the container element for proper positioning
-          const containerElement = editorRef.current;
-          const containerRect = containerElement ? containerElement.getBoundingClientRect() : { left: 0, top: 0 };
-          
-          // Position relative to the editor container, not the viewport
-          setPlusMenuPosition({
-            x: editorRect.left - containerRect.left - 10, // Position to the left of editor content
-            y: coords.top - containerRect.top // Align with cursor line
-          });
-          setPlusMenuVisible(true);
-          setToolbarVisible(false);
-        } else {
-          // Hide plus menu if line has content
-          setPlusMenuVisible(false);
-          setToolbarVisible(false);
-        }
-      } else {
-        // Text selection - show toolbar (use viewport coordinates for fixed positioning)
-        const coords = editor.view.coordsAtPos(from);
-        
-        setToolbarPosition({
-          x: coords.left, // Keep viewport coordinates for toolbar
-          y: coords.top - 50 // Position above the selection
+      allImages.forEach(img => {
+        const imgSrc = img.src;
+        storedImages.forEach(storedId => {
+          try {
+            const imageData = localStorage.getItem(`blog-image-${storedId}`);
+            if (imageData) {
+              const parsedData = JSON.parse(imageData);
+              if (parsedData.data === imgSrc) {
+                imageIds.push(storedId);
+              }
+            }
+          } catch (error) {
+            console.error('Error checking stored image:', storedId, error);
+          }
         });
-        setToolbarVisible(true);
-        setPlusMenuVisible(false);
+      });
+    }
+    
+    return imageIds;
+  };
+
+  // UPDATED: Image upload handler with FORCED attribute setting
+  const handleImageUpload = async (file) => {
+    try {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File too large. Maximum size is 5MB.');
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+      }
+
+      const imageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+      
+      const imageData = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const imageData = {
+              id: imageId,
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              data: reader.result,
+              timestamp: new Date().toISOString()
+            };
+            
+            localStorage.setItem(`blog-image-${imageId}`, JSON.stringify(imageData));
+            
+            const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+            storedImages.push(imageId);
+            localStorage.setItem('blog-images', JSON.stringify(storedImages));
+            
+            resolve(imageData);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      if (editor) {
+        const imageHTML = `<img src="${imageData.data}" alt="${imageData.name}" class="rounded-lg max-w-full h-auto my-4" data-image-id="${imageData.id}" data-image-name="${imageData.name}" data-stored-id="${imageData.id}" />`;
+        
+        editor.commands.insertContent(imageHTML);
+        
+        setTimeout(() => {
+          const currentContent = editor.getHTML();
+          const extractedIds = extractImageIds(currentContent);
+        }, 100);
       }
     } catch (error) {
-      console.error('Error in handleSelectionChange:', error);
-      setPlusMenuVisible(false);
-      setToolbarVisible(false);
+      console.error('Failed to upload image:', error);
+      alert('Failed to upload image. Please try again.');
     }
   };
 
-  // Enhanced selection handling that triggers on various events
-  const triggerSelectionCheck = () => {
-    if (editor) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        handleSelectionChange(editor);
-      }, 10);
-    }
-  };
-
-  // Initialize Tiptap editor
+  // Initialize Tiptap editor - FIXED to preserve custom data attributes
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -272,8 +372,51 @@ const BlogEditor = () => {
         HTMLAttributes: {
           class: 'rounded-lg max-w-full h-auto my-4',
         },
+        // FIXED: Allow custom data attributes to be preserved
+        allowBase64: true,
+        inline: false,
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            'data-image-id': {
+              default: null,
+              parseHTML: element => element.getAttribute('data-image-id'),
+              renderHTML: attributes => {
+                if (!attributes['data-image-id']) {
+                  return {}
+                }
+                return {
+                  'data-image-id': attributes['data-image-id']
+                }
+              },
+            },
+            'data-image-name': {
+              default: null,
+              parseHTML: element => element.getAttribute('data-image-name'),
+              renderHTML: attributes => {
+                if (!attributes['data-image-name']) {
+                  return {}
+                }
+                return {
+                  'data-image-name': attributes['data-image-name']
+                }
+              },
+            },
+            'data-stored-id': {
+              default: null,
+              parseHTML: element => element.getAttribute('data-stored-id'),
+              renderHTML: attributes => {
+                if (!attributes['data-stored-id']) {
+                  return {}
+                }
+                return {
+                  'data-stored-id': attributes['data-stored-id']
+                }
+              },
+            },
+          }
+        },
       }),
-      Underline,
       IframeExtension,
       BookmarkExtension,
       RawHTMLExtension,
@@ -334,8 +477,7 @@ const BlogEditor = () => {
     },
     onCreate: ({ editor }) => {
       setTimeout(() => {
-        setIsInitialized(true);
-        triggerSelectionCheck();
+        editorReadyRef.current = true;
       }, 100);
     },
   });
@@ -365,125 +507,364 @@ const BlogEditor = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [editor, isTyping]);
 
-  // Handle media insertion
+  // Handle selection change - fixed positioning logic with better error handling
+  const handleSelectionChange = (editor) => {
+    if (!editor || !editor.view) return;
+    
+    try {
+      const { selection } = editor.state;
+      const { from, to } = selection;
+      
+      // Check if editor view is properly mounted
+      if (!editor.view.dom || !editor.view.coordsAtPos) {
+        return;
+      }
+      
+      if (from === to) {
+        // Cursor position - check if current line has content
+        const $from = selection.$from;
+        const currentLineText = $from.parent.textContent || '';
+        const hasContentOnLine = currentLineText.trim().length > 0;
+        
+        // Show plus menu if current line is empty or only whitespace
+        if (!hasContentOnLine) {
+          const coords = editor.view.coordsAtPos(from);
+          const editorElement = editor.view.dom;
+          const editorRect = editorElement.getBoundingClientRect();
+          
+          // Get the container element for proper positioning
+          const containerElement = editorRef.current;
+          const containerRect = containerElement ? containerElement.getBoundingClientRect() : { left: 0, top: 0 };
+          
+          // Position relative to the editor container, not the viewport
+          setPlusMenuPosition({
+            x: editorRect.left - containerRect.left - 10, // Position to the left of editor content
+            y: coords.top - containerRect.top // Align with cursor line
+          });
+          setPlusMenuVisible(true);
+          setToolbarVisible(false);
+        } else {
+          // Hide plus menu if line has content
+          setPlusMenuVisible(false);
+          setToolbarVisible(false);
+        }
+      } else {
+        // Text selection - show toolbar (use viewport coordinates for fixed positioning)
+        const coords = editor.view.coordsAtPos(from);
+        
+        setToolbarPosition({
+          x: coords.left, // Keep viewport coordinates for toolbar
+          y: coords.top - 50 // Position above the selection
+        });
+        setToolbarVisible(true);
+        setPlusMenuVisible(false);
+      }
+    } catch (error) {
+      console.error('Error in handleSelectionChange:', error);
+      setPlusMenuVisible(false);
+      setToolbarVisible(false);
+    }
+  };
+
+  // Enhanced selection handling that triggers on various events
+  const triggerSelectionCheck = () => {
+    if (editor && editor.view && editor.view.dom && editor.view.editable) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        handleSelectionChange(editor);
+      }, 10);
+    }
+  };
+
+  // UPDATED: Publish post function
+  const publishPost = () => {
+    if (currentPost && editor) {
+      const finalTitle = postTitle.trim() || 'Untitled Post';
+      const content = editor.getHTML();
+      const excerpt = editor.getText().substring(0, 160);
+      const finalExcerpt = excerpt.length > 0 ? excerpt + '...' : '';
+      const imageIds = extractImageIds(content);
+      
+      const publishedPost = {
+        ...currentPost,
+        title: finalTitle,
+        content,
+        excerpt: finalExcerpt,
+        status: 'published',
+        imageIds,
+        coverImage: coverImage, // Keep for backward compatibility
+        coverImageId: currentPost.coverImageId // NEW: Store cover image ID
+      };
+      
+      const existingPost = posts.find(p => p.id === currentPost.id);
+      if (!existingPost) {
+        dispatch(addPost(publishedPost));
+        console.log('Published new post:', publishedPost.title);
+      } else {
+        dispatch(updatePost(publishedPost));
+        console.log('Published existing post:', publishedPost.title);
+      }
+      
+      dispatch(setLastSaved(new Date().toISOString()));
+      navigate('/');
+    }
+  };
+
+  // Handle cover image upload
+  const handleCoverImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        alert('File too large. Maximum size is 5MB.');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const coverImageId = `cover_${Date.now()}_${Math.random().toString(36).substr(2)}`;
+          
+          const coverImageData = {
+            id: coverImageId,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            data: e.target.result,
+            timestamp: new Date().toISOString(),
+            isCoverImage: true
+          };
+          
+          localStorage.setItem(`blog-image-${coverImageId}`, JSON.stringify(coverImageData));
+          
+          const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+          storedImages.push(coverImageId);
+          localStorage.setItem('blog-images', JSON.stringify(storedImages));
+          
+          setCoverImage(e.target.result);
+          
+          if (currentPost) {
+            const updatedPost = {
+              ...currentPost,
+              coverImage: e.target.result,
+              coverImageId: coverImageId
+            };
+            dispatch(setCurrentPost(updatedPost));
+          }
+        } catch (error) {
+          console.error('Failed to store cover image:', error);
+          setCoverImage(e.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove cover image
+  const handleRemoveCoverImage = () => {
+    setCoverImage(null);
+    
+    // Also remove from current post
+    if (currentPost) {
+      const updatedPost = {
+        ...currentPost,
+        coverImage: null,
+        coverImageId: null
+      };
+      dispatch(setCurrentPost(updatedPost));
+    }
+  };
+
+  // Handle cover image click
+  const handleCoverImageClick = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.onchange = handleCoverImageUpload;
+    fileInput.click();
+  };
+
+  // Handle cover image drag and drop
+  const handleCoverImageDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      const fakeEvent = { target: { files: [file] } };
+      handleCoverImageUpload(fakeEvent);
+    }
+  };
+
+  const handleCoverImageDragOver = (event) => {
+    event.preventDefault();
+  };
+
+  // UPDATED: Media insertion handler with HTML storage
   const handleMediaInsert = async (type, data) => {
     if (!editor) return;
     
     editor.commands.focus();
     
+    const mediaId = `${type}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    
     switch (type) {
       case 'image':
-        if (data?.src) {
-          editor.chain().focus().setImage({ src: data.src }).run();
-        }
-        break;
-      case 'youtube':
-        // Insert YouTube input textbox directly in the editor
-        const youtubeInputHTML = `
-          <div class="youtube-input-wrapper" style="border: 2px dashed #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; background-color: #f9fafb;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <svg style="width: 20px; height: 20px; color: #ef4444;" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
-              </svg>
-              <input 
-                type="text" 
-                placeholder="Paste YouTube URL and press Enter" 
-                class="youtube-url-input"
-                style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; outline: none;"
-                onkeydown="if(event.key === 'Enter') { 
-                  event.preventDefault(); 
-                  const url = this.value.trim();
-                  if (url) {
-                    const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w\-]{11})/);
-                    if (videoId) {
-                      const embedHTML = \`<div class='video-embed my-6'><div class='relative w-full h-0 pb-[56.25%]'><iframe src='https://www.youtube.com/embed/\${videoId[1]}' frameborder='0' allowfullscreen class='absolute top-0 left-0 w-full h-full rounded-lg'></iframe></div></div>\`;
-                      this.parentElement.parentElement.outerHTML = embedHTML;
-                    } else {
-                      alert('Invalid YouTube URL. Please enter a valid YouTube video URL.');
-                    }
-                  } else {
-                    this.parentElement.parentElement.remove();
-                  }
-                }"
-                autofocus
-              />
-            </div>
-            <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-              Paste a YouTube link and press Enter, or press Enter with empty field to cancel
-            </div>
-          </div>
-        `;
-        editor.commands.insertContent(youtubeInputHTML, {
-          parseOptions: {
-            preserveWhitespace: 'full',
-          },
-        });
-        
-        // Focus on the input field after insertion
-        setTimeout(() => {
-          const input = document.querySelector('.youtube-url-input');
-          if (input) {
-            input.focus();
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.onchange = async (event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            await handleImageUpload(file);
           }
-        }, 100);
+        };
+        fileInput.click();
         break;
-      case 'html':
-      case 'rawhtml':
-        if (data) {
-          console.log('Inserting HTML:', data);
-          
-          // Wrap the HTML in a div with data-raw-html attribute and store content in data attribute
-          const wrappedHTML = `<div data-raw-html="true" data-html-content="${data.replace(/"/g, '&quot;')}"></div>`;
-          
-          editor.commands.insertContent(wrappedHTML, {
-            parseOptions: {
-              preserveWhitespace: 'full',
-            },
-          });
-        }
-        break;
-      case 'bookmark':
-        if (data?.url) {
-          try {
-            // Try to use BookmarkExtension if available
-            if (editor.commands.setBookmark) {
-              const metadata = await fetchMetadata(data.url);
-              editor.chain().focus().setBookmark(metadata).run();
-            } else {
-              // Fallback to HTML insertion if BookmarkExtension is not available
-              const bookmarkHTML = `
-                <div class="bookmark-card border rounded-lg p-4 my-4 bg-gray-50">
-                  <a href="${data.url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800">
-                    <h4 class="font-semibold mb-2">Bookmark</h4>
-                    <p class="text-sm text-gray-600">${data.url}</p>
-                  </a>
-                </div>
-              `;
-              editor.commands.insertContent(bookmarkHTML, {
-                parseOptions: {
-                  preserveWhitespace: 'full',
-                },
-              });
+
+      case 'youtube':
+        openModal(
+          'Add YouTube Video',
+          'Enter YouTube URL (e.g., https://youtu.be/dQw4w9WgXcQ)',
+          (youtubeUrl) => {
+            const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w\-]{11})(?:\S+)?/;
+            const match = youtubeUrl.match(regex);
+            
+            if (!match || !match[1]) {
+              throw new Error('Invalid YouTube URL. Please enter a valid YouTube video URL.');
             }
-          } catch (error) {
-            console.error('Error creating bookmark:', error);
-            // Fallback to simple HTML
-            const bookmarkHTML = `
-              <div class="bookmark-card border rounded-lg p-4 my-4 bg-gray-50">
-                <a href="${data.url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800">
-                  <h4 class="font-semibold mb-2">Bookmark</h4>
-                  <p class="text-sm text-gray-600">${data.url}</p>
-                </a>
+
+            const videoId = match[1];
+            
+            const youtubeData = {
+              id: mediaId,
+              type: 'youtube',
+              videoId: videoId,
+              url: youtubeUrl,
+              timestamp: new Date().toISOString()
+            };
+            
+            localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(youtubeData));
+            
+            const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+            storedImages.push(mediaId);
+            localStorage.setItem('blog-images', JSON.stringify(storedImages));
+            
+            const embedHTML = `
+              <div class="video-embed my-6" data-media-id="${mediaId}" data-media-type="youtube" data-youtube-id="${mediaId}">
+                <div class="relative w-full h-0 pb-[56.25%]">
+                  <iframe 
+                    src="https://www.youtube.com/embed/${videoId}" 
+                    title="YouTube video player"
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen
+                    class="absolute top-0 left-0 w-full h-full rounded-lg"
+                    data-youtube-id="${mediaId}"
+                  ></iframe>
+                </div>
               </div>
             `;
-            editor.commands.insertContent(bookmarkHTML, {
-              parseOptions: {
-                preserveWhitespace: 'full',
-              },
+            
+            editor.commands.insertContent(embedHTML, {
+              parseOptions: { preserveWhitespace: 'full' },
             });
           }
-        }
+        );
         break;
+
+      case 'html':
+      case 'rawhtml':
+        openModal(
+          'Add HTML Code',
+          'Enter your HTML code...',
+          (htmlCode) => {
+            if (!htmlCode.trim()) {
+              throw new Error('HTML code cannot be empty');
+            }
+
+            const htmlData = {
+              id: mediaId,
+              type: 'html',
+              htmlContent: htmlCode.trim(),
+              timestamp: new Date().toISOString()
+            };
+            
+            localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(htmlData));
+            
+            const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+            storedImages.push(mediaId);
+            localStorage.setItem('blog-images', JSON.stringify(storedImages));
+            
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlCode;
+            tempDiv.setAttribute('data-raw-html', 'true');
+            tempDiv.setAttribute('data-media-id', mediaId);
+            tempDiv.setAttribute('data-media-type', 'html');
+            tempDiv.setAttribute('data-html-content', htmlCode.replace(/"/g, '&quot;'));
+            tempDiv.style.margin = '16px 0';
+            
+            editor.commands.insertContent('<p>TEMP_HTML_PLACEHOLDER</p>');
+            
+            setTimeout(() => {
+              const editorDOM = editor.view.dom;
+              const placeholder = editorDOM.querySelector('p:contains("TEMP_HTML_PLACEHOLDER")');
+              if (placeholder) {
+                placeholder.parentNode.replaceChild(tempDiv, placeholder);
+              }
+            }, 10);
+          },
+          'textarea'
+        );
+        break;
+
+      case 'bookmark':
+        openModal(
+          'Add Bookmark',
+          'Enter URL (e.g., https://example.com)',
+          async (url) => {
+            if (!url.trim()) {
+              throw new Error('URL cannot be empty');
+            }
+
+            // Basic URL validation
+            try {
+              new URL(url);
+            } catch {
+              throw new Error('Please enter a valid URL');
+            }
+
+            try {
+              if (editor.commands.setBookmark) {
+                const metadata = await fetchMetadata(url);
+                editor.chain().focus().setBookmark({
+                  ...metadata,
+                  'data-media-id': mediaId,
+                  'data-media-type': 'bookmark'
+                }).run();
+              } else {
+                const bookmarkHTML = `
+                  <div class="bookmark-card border rounded-lg p-4 my-4 bg-gray-50" data-media-id="${mediaId}" data-media-type="bookmark">
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800">
+                      <h4 class="font-semibold mb-2">Bookmark</h4>
+                      <p class="text-sm text-gray-600">${url}</p>
+                    </a>
+                  </div>
+                `;
+                editor.commands.insertContent(bookmarkHTML, {
+                  parseOptions: { preserveWhitespace: 'full' },
+                });
+              }
+            } catch (error) {
+              throw new Error('Failed to create bookmark. Please try again.');
+            }
+          }
+        );
+        break;
+
       case 'divider':
         editor.chain().focus().setHorizontalRule().run();
         break;
@@ -519,172 +900,312 @@ const BlogEditor = () => {
     }
   };
 
-  // Enhanced publish post function
-  const publishPost = () => {
-    if (currentPost && editor) {
-      const finalTitle = postTitle.trim() || 'Untitled Post';
-      const content = editor.getHTML();
-      const excerpt = editor.getText().substring(0, 160);
-      const finalExcerpt = excerpt.length > 0 ? excerpt + '...' : '';
-      
-      const publishedPost = {
-        ...currentPost,
-        title: finalTitle,
-        content,
-        excerpt: finalExcerpt,
-        status: 'published',
-        updatedAt: new Date().toISOString()
-      };
-      
-      // Always update/add the post when publishing
-      const existingPost = posts.find(p => p.id === currentPost.id);
-      if (!existingPost) {
-        dispatch(addPost(publishedPost));
-        console.log('Published new post:', publishedPost.title);
-      } else {
-        dispatch(updatePost(publishedPost));
-        console.log('Published existing post:', publishedPost.title);
-      }
-      
-      dispatch(setLastSaved(new Date().toISOString()));
-      
-      // Navigate back to posts list after publishing
-      navigate('/');
-    }
-  };
-
-  // // Publish post
-  // const publishPost = () => {
-  //   if (currentPost && editor) {
-  //     const publishedPost = {
-  //       ...currentPost,
-  //       title: postTitle,
-  //       content: editor.getHTML(),
-  //       excerpt: editor.getText().substring(0, 160) + '...',
-  //       status: 'published',
-  //       updatedAt: new Date().toISOString()
-  //     };
-      
-  //     if (isNew) {
-  //       dispatch(addPost(publishedPost));
-  //     } else {
-  //       dispatch(updatePost(publishedPost));
-  //     }
-  //   }
-  // };
-
-  // Handle cover image upload - Remove setCurrentPost to prevent re-renders
-  const handleCoverImageUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const MAX_FILE_SIZE = 5 * 1024 * 1024;
-      if (file.size > MAX_FILE_SIZE) {
-        alert('File too large. Maximum size is 5MB.');
-        return;
-      }
-      
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setCoverImage(e.target.result);
-        // DON'T call setCurrentPost here - it causes re-renders
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Handle cover image click
-  const handleCoverImageClick = () => {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    fileInput.onchange = handleCoverImageUpload;
-    fileInput.click();
-  };
-
-  // Handle cover image drag and drop
-  const handleCoverImageDrop = (event) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      const fakeEvent = { target: { files: [file] } };
-      handleCoverImageUpload(fakeEvent);
-    }
-  };
-
-  const handleCoverImageDragOver = (event) => {
-    event.preventDefault();
-  };
-
-  // Remove cover image - No setCurrentPost calls
-  const handleRemoveCoverImage = () => {
-    setCoverImage(null);
-    // DON'T call setCurrentPost here - it causes re-renders
-  };
-
-  // Set initial content ONLY ONCE when editor is ready
+  // Initialize or find post
   useEffect(() => {
-    console.log('Content init check:', {
-      hasEditor: !!editor,
-      hasCurrentPost: !!currentPost,
-      editorContentSet: editorContentSetRef.current,
-      postId: currentPost?.id,
-      contentExists: !!(currentPost?.content),
-      contentLength: currentPost?.content?.length || 0
-    });
-
-    if (editor && currentPost && !editorContentSetRef.current) {
-      const postContent = currentPost.content || '';
-      
-      console.log('Setting content for post:', currentPost.id, 'Content:', postContent.substring(0, 100));
-      
-      // Use setTimeout to ensure editor is fully ready
-      setTimeout(() => {
-        editor.commands.setContent(postContent);
-        editorContentSetRef.current = true;
-        setIsInitialized(true);
-        setHasInitialContent(true);
-        
-        console.log('✅ Content set successfully');
-      }, 50);
-      
-      // Set cover image if it exists
-      if (currentPost.coverImage) {
-        setCoverImage(currentPost.coverImage);
+    if (isNew) {
+      if (!postInitializedRef.current) {
+        const newPost = {
+          id: Date.now(),
+          title: '',
+          excerpt: '',
+          content: '',
+          status: 'draft',
+          coverImage: null,
+          coverImageId: null, // NEW: Store cover image ID
+          imageIds: []
+        };
+        dispatch(setCurrentPost(newPost));
+        setPostTitle('');
+        postInitializedRef.current = true;
+        editorContentSetRef.current = false;
+        setIsInitialized(false);
+      }
+    } else {
+      const post = posts.find(p => p.id === parseInt(id));
+      if (post) {
+        if (!postInitializedRef.current) {
+          const postWithImageIds = {
+            ...post,
+            imageIds: post.imageIds || [],
+            coverImageId: post.coverImageId || null
+          };
+          dispatch(setCurrentPost(postWithImageIds));
+          setPostTitle(post.title);
+          postInitializedRef.current = true;
+          editorContentSetRef.current = false;
+          setIsInitialized(false);
+        }
+      } else {
+        navigate('/');
       }
     }
-  }, [currentPost, editor]);
+  }, [id, isNew, navigate, dispatch]);
+
+  // Reset initialization when route changes
+  useEffect(() => {
+    postInitializedRef.current = false;
+    editorContentSetRef.current = false;
+    editorReadyRef.current = false; // FIXED: Reset editor ready flag too
+  }, [id]);
+
+  // UPDATED: Set initial content with HTML embed restoration
+  useEffect(() => {
+    // Only proceed if editor is ready, we have a current post, and content hasn't been set
+    if (!editorReadyRef.current || !currentPost || editorContentSetRef.current) {
+      return;
+    }
+
+    let postContent = currentPost.content || '';
+    
+    // NEW: Restore media (images + YouTube + HTML) from localStorage if we have mediaIds
+    if (currentPost.imageIds && currentPost.imageIds.length > 0) {
+      currentPost.imageIds.forEach(mediaId => {
+        try {
+          const mediaData = localStorage.getItem(`blog-image-${mediaId}`);
+          if (mediaData) {
+            const parsedMediaData = JSON.parse(mediaData);
+            
+            // Handle different media types
+            if (parsedMediaData.type === 'youtube') {
+              // Parse the HTML content to find and update YouTube embeds
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(postContent, 'text/html');
+              
+              // Look for YouTube embeds by data attributes or video ID
+              const youtubeContainers = doc.querySelectorAll(`div[data-media-id="${mediaId}"], div[data-youtube-id="${mediaId}"]`);
+              const youtubeIframes = doc.querySelectorAll(`iframe[data-youtube-id="${mediaId}"]`);
+              
+              if (youtubeContainers.length === 0 && youtubeIframes.length === 0) {
+                // YouTube embed not found in content, but we have the data - recreate it
+                const embedHTML = `
+                  <div class="video-embed my-6" data-media-id="${mediaId}" data-media-type="youtube" data-youtube-id="${mediaId}">
+                    <div class="relative w-full h-0 pb-[56.25%]">
+                      <iframe 
+                        src="https://www.youtube.com/embed/${parsedMediaData.videoId}" 
+                        title="YouTube video player"
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen
+                        class="absolute top-0 left-0 w-full h-full rounded-lg"
+                        data-youtube-id="${mediaId}"
+                      ></iframe>
+                    </div>
+                  </div>
+                `;
+                
+                // Append to content (you might want to insert at specific position)
+                postContent += embedHTML;
+              } else {
+                // Update existing YouTube embeds with proper data attributes
+                youtubeContainers.forEach(container => {
+                  container.setAttribute('data-media-id', mediaId);
+                  container.setAttribute('data-media-type', 'youtube');
+                  container.setAttribute('data-youtube-id', mediaId);
+                });
+                
+                youtubeIframes.forEach(iframe => {
+                  iframe.setAttribute('data-youtube-id', mediaId);
+                  // Ensure iframe has correct src
+                  iframe.src = `https://www.youtube.com/embed/${parsedMediaData.videoId}`;
+                });
+                
+                // Update postContent with the modified HTML
+                postContent = doc.body.innerHTML;
+              }
+            } else if (parsedMediaData.type === 'html') {
+              // Parse the HTML content to find and update HTML embeds
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(postContent, 'text/html');
+              
+              // Look for HTML embeds by data attributes
+              const htmlContainers = doc.querySelectorAll(`div[data-media-id="${mediaId}"]`);
+              
+              if (htmlContainers.length === 0) {
+                // HTML embed not found in content, but we have the data - recreate it
+                const wrappedHTML = `<div data-raw-html="true" data-media-id="${mediaId}" data-media-type="html" data-html-content="${parsedMediaData.htmlContent.replace(/"/g, '&quot;')}">${parsedMediaData.htmlContent}</div>`;
+                
+                // Append to content (you might want to insert at specific position)
+                postContent += wrappedHTML;
+              } else {
+                // Update existing HTML embeds with proper data attributes
+                htmlContainers.forEach(container => {
+                  container.setAttribute('data-media-id', mediaId);
+                  container.setAttribute('data-media-type', 'html');
+                  container.setAttribute('data-raw-html', 'true');
+                  container.setAttribute('data-html-content', parsedMediaData.htmlContent.replace(/"/g, '&quot;'));
+                  // Update the inner HTML content
+                  container.innerHTML = parsedMediaData.htmlContent;
+                });
+                
+                // Update postContent with the modified HTML
+                postContent = doc.body.innerHTML;
+              }
+            } else {
+              // Handle regular images (existing logic)
+              if (postContent.includes(parsedMediaData.data)) {
+                // Parse the HTML content
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(postContent, 'text/html');
+                const images = doc.querySelectorAll('img');
+                
+                // Find and update the matching image
+                images.forEach(img => {
+                  if (img.src === parsedMediaData.data) {
+                    // Add the data attributes to this image
+                    img.setAttribute('data-image-id', mediaId);
+                    img.setAttribute('data-image-name', parsedMediaData.name);
+                    img.setAttribute('data-stored-id', mediaId);
+                  }
+                });
+                
+                // Update postContent with the modified HTML
+                postContent = doc.body.innerHTML;
+              }
+            }
+          } else {
+            console.warn('Media not found in localStorage:', mediaId);
+          }
+        } catch (error) {
+          console.error('Error restoring media:', mediaId, error);
+        }
+      });
+    }
+    
+    // NEW: Restore cover image from localStorage if we have coverImageId
+    if (currentPost.coverImageId) {
+      try {
+        const coverImageData = localStorage.getItem(`blog-image-${currentPost.coverImageId}`);
+        if (coverImageData) {
+          const parsedCoverImageData = JSON.parse(coverImageData);
+          setCoverImage(parsedCoverImageData.data);
+        } else {
+          console.warn('Cover image not found in localStorage:', currentPost.coverImageId);
+          // Fallback to original cover image if exists
+          if (currentPost.coverImage) {
+            setCoverImage(currentPost.coverImage);
+          }
+        }
+      } catch (error) {
+        console.error('Error restoring cover image:', currentPost.coverImageId, error);
+        // Fallback to original cover image if exists
+        if (currentPost.coverImage) {
+          setCoverImage(currentPost.coverImage);
+        }
+      }
+    } else if (currentPost.coverImage) {
+      // Fallback for posts without coverImageId
+      setCoverImage(currentPost.coverImage);
+    }
+
+    const setContentSafely = () => {
+      try {
+        if (editor && editor.commands && editor.view && editor.view.dom) {
+          editor.commands.setContent(postContent);
+          editorContentSetRef.current = true;
+          setIsInitialized(true);
+          setHasInitialContent(true);
+          
+          setTimeout(() => {
+            const editorHTML = editor.getHTML();
+            const testExtraction = extractImageIds(editorHTML);
+            
+            if (editor.view && editor.view.dom && editor.view.editable) {
+              triggerSelectionCheck();
+            }
+          }, 100);
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error setting content:', error);
+        return false;
+      }
+    };
+
+    if (!setContentSafely()) {
+      setTimeout(() => {
+        if (!editorContentSetRef.current) {
+          setContentSafely();
+        }
+      }, 200);
+    }
+    
+    if (currentPost.coverImage) {
+      setCoverImage(currentPost.coverImage);
+    }
+  }, [currentPost, editor, editorReadyRef.current]);
 
   // Debug effect to track what's happening
   useEffect(() => {
     if (currentPost) {
-      console.log('📝 Current post changed:', {
-        id: currentPost.id,
-        title: currentPost.title,
-        hasContent: !!(currentPost.content),
-        contentPreview: currentPost.content?.substring(0, 50) + '...'
-      });
+      // Removed debug console.log
     }
   }, [currentPost]);
 
-  // Cleanup
+  // Cleanup global callbacks with proper cleanup
   useEffect(() => {
     return () => {
-      if (editor) {
-        editor.destroy();
+      if (window.storeYouTubeMedia) {
+        window.storeYouTubeMedia = null;
       }
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      if (autosaveRef.current) {
+      if (autosaveRef.current && autosaveRef.current.cancel) {
         autosaveRef.current.cancel();
       }
     };
-  }, [editor]);
+  }, []);
+
+  // Add global style injection for HTML embeds
+  useEffect(() => {
+    // Inject global CSS for HTML embeds
+    const styleId = 'html-embed-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        .html-embed-content * {
+          all: unset !important;
+          display: revert !important;
+          color: revert !important;
+          font-family: inherit !important;
+          font-size: revert !important;
+          font-weight: revert !important;
+          text-decoration: revert !important;
+          margin: revert !important;
+          padding: revert !important;
+          background: revert !important;
+          border: revert !important;
+        }
+        .html-embed-content p {
+          display: block !important;
+          margin: 1em 0 !important;
+        }
+        .html-embed-content div {
+          display: block !important;
+        }
+        .html-embed-content span {
+          display: inline !important;
+        }
+        .html-embed-content h1, .html-embed-content h2, .html-embed-content h3,
+        .html-embed-content h4, .html-embed-content h5, .html-embed-content h6 {
+          display: block !important;
+          font-weight: bold !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Cleanup
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        document.head.removeChild(existingStyle);
+      }
+    };
+  }, []);
 
   if (!currentPost) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
@@ -773,15 +1294,28 @@ const BlogEditor = () => {
             isVisible={plusMenuVisible && !isTyping}
             position={plusMenuPosition}
             onInsert={handleMediaInsert}
+            openModal={openModal}
           />
           
           <FloatingToolbar
             editor={editor}
             isVisible={toolbarVisible && !isTyping}
             position={toolbarPosition}
+            openModal={openModal}
           />
         </div>
       </div>
+
+      {/* Custom Modal */}
+      <CustomModal
+        isOpen={modalConfig.isOpen}
+        onClose={closeModal}
+        title={modalConfig.title}
+        placeholder={modalConfig.placeholder}
+        type={modalConfig.type}
+        error={modalConfig.error}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   );
 };

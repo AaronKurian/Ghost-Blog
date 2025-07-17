@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { MediaInputManager } from './MediaInputHandlers';
 
-const FloatingPlusMenu = ({ editor, isVisible, position, onInsert }) => {
+const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -43,15 +43,33 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert }) => {
     
     // Use MediaInputManager for consistent handling
     if (MediaInputManager[type]) {
-      const handler = MediaInputManager[type]({ onInsert, editor });
+      const handler = MediaInputManager[type]({ onInsert, editor, openModal });
       handler();
     } else {
       // Fallback for types not in MediaInputManager
       switch (type) {
         case 'imageUrl':
-          const imageUrl = window.prompt('Enter image URL:');
-          if (imageUrl) {
-            onInsert('image', { src: imageUrl });
+          if (openModal) {
+            openModal(
+              'Add Image from URL',
+              'Enter image URL (e.g., https://example.com/image.jpg)',
+              (imageUrl) => {
+                if (!imageUrl.trim()) {
+                  throw new Error('Image URL cannot be empty');
+                }
+                try {
+                  new URL(imageUrl);
+                } catch {
+                  throw new Error('Please enter a valid URL');
+                }
+                onInsert('image', { src: imageUrl });
+              }
+            );
+          } else {
+            const imageUrl = window.prompt('Enter image URL:');
+            if (imageUrl) {
+              onInsert('image', { src: imageUrl });
+            }
           }
           break;
         default:
