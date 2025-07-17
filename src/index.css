@@ -1,0 +1,230 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Add some additional styles for the prose content */
+.prose {
+  color: #374151;
+  max-width: none;
+}
+
+.prose p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.prose h1, .prose h2, .prose h3 {
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.prose h1 {
+  font-size: 2.25em;
+  margin-top: 0;
+  margin-bottom: 0.8888889em;
+}
+
+.prose h2 {
+  font-size: 1.5em;
+  margin-top: 2em;
+  margin-bottom: 1em;
+}
+
+.prose h3 {
+  font-size: 1.25em;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+}
+
+.prose blockquote {
+  font-style: italic;
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 1.6em 0;
+}
+
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.875em;
+}
+
+.prose pre {
+  background-color: #1f2937;
+  color: #f9fafb;
+  padding: 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  margin: 1.7142857em 0;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+.prose ul, .prose ol {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  padding-left: 1.625em;
+}
+
+.prose li {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: #1d4ed8;
+}
+
+.prose img {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 3em 0;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Video embed styles */
+.video-embed {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  margin: 1.7142857em 0;
+}
+
+.video-embed iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Bookmark card styles */
+.bookmark-card {
+  margin: 1.7142857em 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5em;
+  padding: 1em;
+  background-color: #f9fafb;
+}
+
+/* Tweet embed styles */
+.tweet-embed {
+  margin: 1.7142857em 0;
+  text-align: center;
+}
+
+.tweet-embed blockquote {
+  display: inline-block;
+  margin: 0;
+  padding: 1em;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5em;
+  background-color: #f9fafb;
+}
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  outline: none;
+  padding: 2rem;
+  min-height: 400px;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  color: #374151;
+  /* background: white; */
+  border-radius: 0.5rem;
+}
+
+.ProseMirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror p {
+  margin: 0 0 1em 0;
+}
+
+.ProseMirror h1, 
+.ProseMirror h2, 
+.ProseMirror h3 {
+  font-weight: 600;
+  margin: 1.5em 0 0.5em 0;
+}
+
+.ProseMirror h1 { 
+  font-size: 2rem; 
+}
+
+.ProseMirror h2 { 
+  font-size: 1.5rem; 
+}
+
+.ProseMirror h3 { 
+  font-size: 1.25rem; 
+}
+
+.ProseMirror ul, 
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 1em 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1rem;
+  margin: 1em 0;
+  font-style: italic;
+  color: #6b7280;
+}
+
+.ProseMirror code {
+  /* background-color: #f3f4f6; */
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 2em 0;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1em 0;
+}
