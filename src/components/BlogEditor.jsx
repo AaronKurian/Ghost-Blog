@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -8,16 +8,20 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import { StyledParagraph } from '../extensions/StyledParagraph';
 import { addPost, updatePost, setCurrentPost, setLastSaved } from '../store/postsSlice';
-import { BookmarkExtension } from '../extensions/BookmarkExtension';
+import { BookmarkExtension } from '../extensions/BookmarkExtension.js';
 import { RawHTMLExtension } from '../extensions/RawHTMLExtension';
 import { fetchMetadata } from '../utils/metadataFetcher';
 import FloatingToolbar from './FloatingToolbar';
 import FloatingPlusMenu from './FloatingPlusMenu';
-import { AiOutlineCloudUpload } from "react-icons/ai";
+import { VscCloudUpload } from "react-icons/vsc";
 import { ChevronLeft, PanelRight } from 'lucide-react';
 import { ImageStorage } from '../utils/imageStorage';
 import CustomModal from './CustomModal';
+import BookmarkModal from './BookmarkModal';
+import { BookmarkInputHandler } from './MediaInputHandlers';
+import HtmlInputModal from './HtmlInputModal';
 
 // Simple YouTube embed function
 const createYouTubeEmbed = (url) => {
@@ -109,6 +113,17 @@ const BlogEditor = () => {
     error: null
   });
 
+  const [bookmarkModal, setBookmarkModal] = useState({
+    isOpen: false,
+    error: null
+  });
+
+  const [htmlModal, setHtmlModal] = useState({
+    isOpen: false,
+    error: null,
+    onSubmit: null,
+  });
+
   const editorRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const autosaveRef = useRef(null);
@@ -133,11 +148,100 @@ const BlogEditor = () => {
   };
 
   const handleModalSubmit = (value) => {
+    console.log('🎯 handleModalSubmit called with value:', value);
+    console.log('🎯 modalConfig.onSubmit exists:', !!modalConfig.onSubmit);
+    
     try {
-      modalConfig.onSubmit(value);
+      if (modalConfig.onSubmit) {
+        console.log('🎯 Calling modalConfig.onSubmit...');
+        modalConfig.onSubmit(value);
+        console.log('🎯 modalConfig.onSubmit completed');
+      } else {
+        console.error('🎯 No onSubmit function in modalConfig');
+      }
       closeModal();
     } catch (error) {
+      console.error('🎯 Error in handleModalSubmit:', error);
       setModalConfig(prev => ({ ...prev, error: error.message }));
+    }
+  };
+
+  const openBookmarkModal = () => {
+    setBookmarkModal({ isOpen: true, error: null });
+  };
+
+  const closeBookmarkModal = () => {
+    setBookmarkModal({ isOpen: false, error: null });
+  };
+
+  const handleBookmarkSubmit = async (url) => {
+    try {
+      // Create bookmark directly here instead of using the handler
+      if (!url || !url.trim()) {
+        throw new Error('URL cannot be empty');
+      }
+
+      const urlObj = new URL(url.trim());
+      const domain = urlObj.hostname;
+      
+      // Show loading state first
+      const loadingHTML = `
+        <div class="bookmark-card">
+          <div class="bookmark-content">
+            <div style="color: #6b7280; font-size: 0.875rem;">Loading bookmark...</div>
+          </div>
+        </div>
+      `;
+      
+      // Insert loading state first
+      if (editor) {
+        editor.commands.insertContent(loadingHTML, {
+          parseOptions: { preserveWhitespace: 'full' },
+        });
+      }
+      
+      // Import and fetch real metadata
+      const { fetchMetadata } = await import('../utils/metadataFetcher');
+      const metadata = await fetchMetadata(url.trim());
+      
+      // Create beautiful bookmark with real data using CSS classes
+      const bookmarkHTML = `
+        <div class="bookmark-card" data-bookmark-url="${url.trim()}">
+          <a href="${url.trim()}" target="_blank" rel="noopener noreferrer">
+          <div class="bookmark-footer">
+            <img src="${metadata.favicon || `https://www.google.com/s2/favicons?sz=16&domain=${domain}`}" alt="" class="bookmark-favicon" onerror="this.style.display='none';" />
+            <span class="bookmark-site">
+            ${metadata.site || domain}
+            </span>
+            </div>
+            </a>
+            <div class="bookmark-content">
+              <h4 class="bookmark-title">
+                ${metadata.title || domain}
+              </h4>
+              <p class="bookmark-description">
+                ${metadata.description || 'No description available'}
+              </p>
+            </div>
+        </div>
+      `;
+      
+      // Replace loading state with actual bookmark
+      if (editor) {
+        const currentContent = editor.getHTML();
+        const updatedContent = currentContent.replace(/Loading bookmark\.\.\./g, '');
+        
+        // Clear and insert the new bookmark
+        editor.commands.selectAll();
+        editor.commands.insertContent(updatedContent + bookmarkHTML, {
+          parseOptions: { preserveWhitespace: 'full' },
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error creating bookmark:', error);
+      setBookmarkModal(prev => ({ ...prev, error: error.message }));
+      throw error;
     }
   };
 
@@ -352,14 +456,16 @@ const BlogEditor = () => {
     }
   };
 
-  // Initialize Tiptap editor - FIXED to preserve custom data attributes
+  // Initialize Tiptap editor
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        paragraph: false, // disable default paragraph
         heading: {
           levels: [2, 3],
         },
       }),
+      StyledParagraph, // use our custom styled paragraph instead
       Placeholder.configure({
         placeholder: 'Begin writing your post...',
       }),
@@ -482,228 +588,105 @@ const BlogEditor = () => {
     },
   });
 
-  // Add scroll event listener to update positions
-  useEffect(() => {
-    const handleScroll = () => {
-      if (editor && !isTyping) {
-        // Update positions on scroll
-        setTimeout(() => triggerSelectionCheck(), 10);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [editor, isTyping]);
-
-  // Add resize event listener
-  useEffect(() => {
-    const handleResize = () => {
-      if (editor && !isTyping) {
-        setTimeout(() => triggerSelectionCheck(), 10);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [editor, isTyping]);
-
-  // Handle selection change - fixed positioning logic with better error handling
-  const handleSelectionChange = (editor) => {
-    if (!editor || !editor.view) return;
+  // Define bookmark processing function completely outside handleMediaInsert
+  const processBookmark = useCallback(async (url, mediaId) => {
+    console.log('📖 processBookmark function called with URL:', url);
+    console.log('📖 URL type:', typeof url, 'length:', url?.length);
+    console.log('📖 Media ID:', mediaId);
     
+    if (!url || !url.trim()) {
+      console.error('📖 URL is empty');
+      throw new Error('URL cannot be empty');
+    }
+
+    const trimmedUrl = url.trim();
+    console.log('📖 Trimmed URL:', trimmedUrl);
+
+    // Basic URL validation
     try {
-      const { selection } = editor.state;
-      const { from, to } = selection;
+      const validatedUrl = new URL(trimmedUrl);
+      console.log('📖 URL validation passed:', validatedUrl.href);
+    } catch (urlError) {
+      console.error('📖 URL validation failed:', urlError);
+      throw new Error('Please enter a valid URL');
+    }
+
+    try {
+      console.log('📖 About to fetch metadata...');
+      const metadata = await fetchMetadata(trimmedUrl);
+      console.log('📖 Metadata received:', metadata);
       
-      // Check if editor view is properly mounted
-      if (!editor.view.dom || !editor.view.coordsAtPos) {
-        return;
-      }
+      // Store bookmark data in localStorage for persistence
+      const bookmarkData = {
+        id: mediaId,
+        type: 'bookmark',
+        url: trimmedUrl,
+        title: metadata.title || 'Bookmark',
+        description: metadata.description || trimmedUrl,
+        image: metadata.image,
+        favicon: metadata.favicon,
+        site: metadata.site,
+        timestamp: new Date().toISOString()
+      };
       
-      if (from === to) {
-        // Cursor position - check if current line has content
-        const $from = selection.$from;
-        const currentLineText = $from.parent.textContent || '';
-        const hasContentOnLine = currentLineText.trim().length > 0;
+      localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(bookmarkData));
+      
+      const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+      storedImages.push(mediaId);
+      localStorage.setItem('blog-images', JSON.stringify(storedImages));
+      
+      // Check if BookmarkExtension is registered and has the setBookmark command
+      if (editor.commands.setBookmark) {
+        console.log('📖 Using BookmarkExtension with command:', editor.commands.setBookmark);
         
-        // Show plus menu if current line is empty or only whitespace
-        if (!hasContentOnLine) {
-          const coords = editor.view.coordsAtPos(from);
-          const editorElement = editor.view.dom;
-          const editorRect = editorElement.getBoundingClientRect();
-          
-          // Get the container element for proper positioning
-          const containerElement = editorRef.current;
-          const containerRect = containerElement ? containerElement.getBoundingClientRect() : { left: 0, top: 0 };
-          
-          // Position relative to the editor container, not the viewport
-          setPlusMenuPosition({
-            x: editorRect.left - containerRect.left - 10, // Position to the left of editor content
-            y: coords.top - containerRect.top // Align with cursor line
-          });
-          setPlusMenuVisible(true);
-          setToolbarVisible(false);
-        } else {
-          // Hide plus menu if line has content
-          setPlusMenuVisible(false);
-          setToolbarVisible(false);
-        }
+        editor.chain().focus().setBookmark({
+          url: trimmedUrl,
+          title: metadata.title || 'Bookmark',
+          description: metadata.description || trimmedUrl,
+          image: metadata.image,
+          favicon: metadata.favicon,
+          site: metadata.site,
+        }).run();
+        
+        console.log('📖 BookmarkExtension insertion completed');
       } else {
-        // Text selection - show toolbar (use viewport coordinates for fixed positioning)
-        const coords = editor.view.coordsAtPos(from);
+        console.log('📖 Using fallback HTML bookmark implementation');
         
-        setToolbarPosition({
-          x: coords.left, // Keep viewport coordinates for toolbar
-          y: coords.top - 50 // Position above the selection
+        // Use a fallback HTML implementation if the extension isn't working
+        const bookmarkHTML = `
+          <div class="bookmark-card border rounded-lg p-4 my-4 bg-gray-50" data-media-id="${mediaId}" data-media-type="bookmark">
+            <a href="${trimmedUrl}" target="_blank" rel="noopener noreferrer" class="flex">
+              <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-2">
+                  ${metadata.favicon ? `<img src="${metadata.favicon}" alt="" class="w-4 h-4" />` : ''}
+                  <span class="text-sm text-gray-500">${metadata.site || new URL(trimmedUrl).hostname}</span>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">${metadata.title || trimmedUrl}</h4>
+                ${metadata.description ? `<p class="text-sm text-gray-600">${metadata.description}</p>` : ''}
+              </div>
+              ${metadata.image ? `
+                <div class="w-32 h-24 bg-gray-100 flex-shrink-0 ml-4">
+                  <img src="${metadata.image}" alt="" class="w-full h-full object-cover" />
+                </div>
+              ` : ''}
+            </a>
+          </div>
+        `;
+        
+        console.log('📖 Inserting bookmark HTML');
+        editor.commands.insertContent(bookmarkHTML, {
+          parseOptions: { preserveWhitespace: 'full' },
         });
-        setToolbarVisible(true);
-        setPlusMenuVisible(false);
       }
+      
+      console.log('📖 Bookmark inserted successfully');
     } catch (error) {
-      console.error('Error in handleSelectionChange:', error);
-      setPlusMenuVisible(false);
-      setToolbarVisible(false);
+      console.error('📖 Error creating bookmark:', error);
+      throw new Error('Failed to create bookmark: ' + error.message);
     }
-  };
+  }, [editor, fetchMetadata]);
 
-  // Enhanced selection handling that triggers on various events
-  const triggerSelectionCheck = () => {
-    if (editor && editor.view && editor.view.dom && editor.view.editable) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        handleSelectionChange(editor);
-      }, 10);
-    }
-  };
-
-  // UPDATED: Publish post function
-  const publishPost = () => {
-    if (currentPost && editor) {
-      const finalTitle = postTitle.trim() || 'Untitled Post';
-      const content = editor.getHTML();
-      const excerpt = editor.getText().substring(0, 160);
-      const finalExcerpt = excerpt.length > 0 ? excerpt + '...' : '';
-      const imageIds = extractImageIds(content);
-      
-      const publishedPost = {
-        ...currentPost,
-        title: finalTitle,
-        content,
-        excerpt: finalExcerpt,
-        status: 'published',
-        imageIds,
-        coverImage: coverImage, // Keep for backward compatibility
-        coverImageId: currentPost.coverImageId // NEW: Store cover image ID
-      };
-      
-      const existingPost = posts.find(p => p.id === currentPost.id);
-      if (!existingPost) {
-        dispatch(addPost(publishedPost));
-        console.log('Published new post:', publishedPost.title);
-      } else {
-        dispatch(updatePost(publishedPost));
-        console.log('Published existing post:', publishedPost.title);
-      }
-      
-      dispatch(setLastSaved(new Date().toISOString()));
-      navigate('/');
-    }
-  };
-
-  // Handle cover image upload
-  const handleCoverImageUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const MAX_FILE_SIZE = 5 * 1024 * 1024;
-      if (file.size > MAX_FILE_SIZE) {
-        alert('File too large. Maximum size is 5MB.');
-        return;
-      }
-      
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const coverImageId = `cover_${Date.now()}_${Math.random().toString(36).substr(2)}`;
-          
-          const coverImageData = {
-            id: coverImageId,
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            data: e.target.result,
-            timestamp: new Date().toISOString(),
-            isCoverImage: true
-          };
-          
-          localStorage.setItem(`blog-image-${coverImageId}`, JSON.stringify(coverImageData));
-          
-          const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
-          storedImages.push(coverImageId);
-          localStorage.setItem('blog-images', JSON.stringify(storedImages));
-          
-          setCoverImage(e.target.result);
-          
-          if (currentPost) {
-            const updatedPost = {
-              ...currentPost,
-              coverImage: e.target.result,
-              coverImageId: coverImageId
-            };
-            dispatch(setCurrentPost(updatedPost));
-          }
-        } catch (error) {
-          console.error('Failed to store cover image:', error);
-          setCoverImage(e.target.result);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Remove cover image
-  const handleRemoveCoverImage = () => {
-    setCoverImage(null);
-    
-    // Also remove from current post
-    if (currentPost) {
-      const updatedPost = {
-        ...currentPost,
-        coverImage: null,
-        coverImageId: null
-      };
-      dispatch(setCurrentPost(updatedPost));
-    }
-  };
-
-  // Handle cover image click
-  const handleCoverImageClick = () => {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    fileInput.onchange = handleCoverImageUpload;
-    fileInput.click();
-  };
-
-  // Handle cover image drag and drop
-  const handleCoverImageDrop = (event) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      const fakeEvent = { target: { files: [file] } };
-      handleCoverImageUpload(fakeEvent);
-    }
-  };
-
-  const handleCoverImageDragOver = (event) => {
-    event.preventDefault();
-  };
-
-  // UPDATED: Media insertion handler with HTML storage
+  // UPDATED: Media insertion handler with proper async handling
   const handleMediaInsert = async (type, data) => {
     if (!editor) return;
     
@@ -822,47 +805,8 @@ const BlogEditor = () => {
         break;
 
       case 'bookmark':
-        openModal(
-          'Add Bookmark',
-          'Enter URL (e.g., https://example.com)',
-          async (url) => {
-            if (!url.trim()) {
-              throw new Error('URL cannot be empty');
-            }
-
-            // Basic URL validation
-            try {
-              new URL(url);
-            } catch {
-              throw new Error('Please enter a valid URL');
-            }
-
-            try {
-              if (editor.commands.setBookmark) {
-                const metadata = await fetchMetadata(url);
-                editor.chain().focus().setBookmark({
-                  ...metadata,
-                  'data-media-id': mediaId,
-                  'data-media-type': 'bookmark'
-                }).run();
-              } else {
-                const bookmarkHTML = `
-                  <div class="bookmark-card border rounded-lg p-4 my-4 bg-gray-50" data-media-id="${mediaId}" data-media-type="bookmark">
-                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800">
-                      <h4 class="font-semibold mb-2">Bookmark</h4>
-                      <p class="text-sm text-gray-600">${url}</p>
-                    </a>
-                  </div>
-                `;
-                editor.commands.insertContent(bookmarkHTML, {
-                  parseOptions: { preserveWhitespace: 'full' },
-                });
-              }
-            } catch (error) {
-              throw new Error('Failed to create bookmark. Please try again.');
-            }
-          }
-        );
+        // Open the bookmark modal instead of using window.prompt
+        openBookmarkModal();
         break;
 
       case 'divider':
@@ -899,6 +843,225 @@ const BlogEditor = () => {
       }, 1000);
     }
   };
+
+  // UPDATED: Publish post function - ensure it's properly defined
+  const publishPost = useCallback(() => {
+    if (currentPost && editor) {
+      const finalTitle = postTitle.trim() || 'Untitled Post';
+      const content = editor.getHTML();
+      const excerpt = editor.getText().substring(0, 160);
+      const finalExcerpt = excerpt.length > 0 ? excerpt + '...' : '';
+      const imageIds = extractImageIds(content);
+      
+      const publishedPost = {
+        ...currentPost,
+        title: finalTitle,
+        content,
+        excerpt: finalExcerpt,
+        status: 'published',
+        imageIds,
+        coverImage: coverImage,
+        coverImageId: currentPost.coverImageId
+      };
+      
+      const existingPost = posts.find(p => p.id === currentPost.id);
+      if (!existingPost) {
+        dispatch(addPost(publishedPost));
+        console.log('Published new post:', publishedPost.title);
+      } else {
+        dispatch(updatePost(publishedPost));
+        console.log('Published existing post:', publishedPost.title);
+      }
+      
+      dispatch(setLastSaved(new Date().toISOString()));
+      navigate('/');
+    }
+  }, [currentPost, editor, postTitle, extractImageIds, coverImage, posts, dispatch, navigate]);
+
+  // Handle cover image upload
+  const handleCoverImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        alert('File too large. Maximum size is 5MB.');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const coverImageId = `cover_${Date.now()}_${Math.random().toString(36).substr(2)}`;
+          
+          const coverImageData = {
+            id: coverImageId,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            data: e.target.result,
+            timestamp: new Date().toISOString(),
+            isCoverImage: true
+          };
+          
+          localStorage.setItem(`blog-image-${coverImageId}`, JSON.stringify(coverImageData));
+          
+          const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+          storedImages.push(coverImageId);
+          localStorage.setItem('blog-images', JSON.stringify(storedImages));
+          
+          setCoverImage(e.target.result);
+          
+          if (currentPost) {
+            const updatedPost = {
+              ...currentPost,
+              coverImage: e.target.result,
+              coverImageId: coverImageId
+            };
+            dispatch(setCurrentPost(updatedPost));
+          }
+        } catch (error) {
+          console.error('Failed to store cover image:', error);
+          setCoverImage(e.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove cover image
+  const handleRemoveCoverImage = () => {
+    setCoverImage(null);
+    
+    if (currentPost) {
+      const updatedPost = {
+        ...currentPost,
+        coverImage: null,
+        coverImageId: null
+      };
+      dispatch(setCurrentPost(updatedPost));
+    }
+  };
+
+  // Handle cover image click
+  const handleCoverImageClick = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.onchange = handleCoverImageUpload;
+    fileInput.click();
+  };
+
+  // Handle cover image drag and drop
+  const handleCoverImageDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      const fakeEvent = { target: { files: [file] } };
+      handleCoverImageUpload(fakeEvent);
+    }
+  };
+
+  const handleCoverImageDragOver = (event) => {
+    event.preventDefault();
+  };
+
+  // Enhanced selection handling that triggers on various events
+  const triggerSelectionCheck = () => {
+    if (editor && editor.view && editor.view.dom && editor.view.editable) {
+      setTimeout(() => {
+        handleSelectionChange(editor);
+      }, 10);
+    }
+  };
+
+  // Handle selection change - fixed positioning logic with better error handling
+  const handleSelectionChange = (editor) => {
+    if (!editor || !editor.view) return;
+    
+    try {
+      const { selection } = editor.state;
+      const { from, to } = selection;
+      
+      if (!editor.view.dom || !editor.view.coordsAtPos) {
+        return;
+      }
+      
+      if (from === to) {
+        const $from = selection.$from;
+        const currentLineText = $from.parent.textContent || '';
+        const hasContentOnLine = currentLineText.trim().length > 0;
+        
+        if (!hasContentOnLine) {
+          const coords = editor.view.coordsAtPos(from);
+          const editorElement = editor.view.dom;
+          const editorRect = editorElement.getBoundingClientRect();
+          
+          const containerElement = editorRef.current;
+          const containerRect = containerElement ? containerElement.getBoundingClientRect() : { left: 0, top: 0 };
+          
+          setPlusMenuPosition({
+            x: editorRect.left - containerRect.left - 10,
+            y: coords.top - containerRect.top
+          });
+          setPlusMenuVisible(true);
+          setToolbarVisible(false);
+        } else {
+          setPlusMenuVisible(false);
+          setToolbarVisible(false);
+        }
+      } else {
+        const startCoords = editor.view.coordsAtPos(from);
+        const endCoords = editor.view.coordsAtPos(to);
+        
+        const centerX = (startCoords.left + endCoords.right) / 2;
+        const selectionTop = Math.min(startCoords.top, endCoords.top);
+        
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        const toolbarWidth = 200;
+        const toolbarHeight = 50;
+        
+        let x = centerX - (toolbarWidth / 2);
+        let y = selectionTop - toolbarHeight - 10;
+        
+        if (x < 10) {
+          x = 10;
+        } else if (x + toolbarWidth > viewportWidth - 10) {
+          x = viewportWidth - toolbarWidth - 10;
+        }
+        
+        if (y < 10) {
+          y = Math.max(startCoords.bottom, endCoords.bottom) + 10;
+        }
+        
+        if (y + toolbarHeight > viewportHeight - 10) {
+          y = viewportHeight - toolbarHeight - 10;
+        }
+        
+        setToolbarPosition({ x, y });
+        setToolbarVisible(true);
+        setPlusMenuVisible(false);
+      }
+    } catch (error) {
+      console.error('Error in handleSelectionChange:', error);
+      setPlusMenuVisible(false);
+      setToolbarVisible(false);
+    }
+  };
+
+  // DEBUG: Log current post and editor state
+  useEffect(() => {
+    if (currentPost) {
+      console.log('Current Post:', currentPost);
+      console.log('Editor Content:', editor ? editor.getHTML() : 'Editor not initialized');
+    }
+  }, [currentPost, editor]);
 
   // Initialize or find post
   useEffect(() => {
@@ -1207,49 +1370,73 @@ const BlogEditor = () => {
     };
   }, []);
 
+  // Add these handlers for the HTML modal
+  const openHtmlModal = (onSubmit) => {
+    setHtmlModal({
+      isOpen: true,
+      error: null,
+      onSubmit,
+    });
+  };
+
+  const closeHtmlModal = () => {
+    setHtmlModal(prev => ({ ...prev, isOpen: false, error: null, onSubmit: null }));
+  };
+
+  const handleHtmlModalSubmit = (htmlValue) => {
+    if (!htmlValue || !htmlValue.trim()) {
+      setHtmlModal(prev => ({ ...prev, error: 'HTML code cannot be empty' }));
+      return;
+    }
+    if (htmlModal.onSubmit) {
+      htmlModal.onSubmit(htmlValue);
+    }
+    closeHtmlModal();
+  };
+
   if (!currentPost) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
   return (
-    <div className="min-w-screen min-h-screen pt-4 px-20 overflow-scroll">
+    <div className="min-w-screen min-h-screen pt-8 sm:pt-4 px-4 sm:px-8 lg:px-20 overflow-scroll font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between backdrop-blur-sm p-4 sticky top-0 z-10">
-        <div className="flex items-center space-x-4">
+      <div className="flex items-center justify-between backdrop-blur-sm p-2 sm:p-4 sticky top-0 z-10">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center space-x-2 text-gray-500 cursor-pointer hover:text-gray-900 transition-colors"
+            className="flex items-center space-x-1 sm:space-x-2 text-gray-500 cursor-pointer hover:text-gray-900 transition-colors"
           >
             <ChevronLeft size={16} />
-            <span className='text-black font-medium'>Posts</span>
+            <span className='text-black font-medium text-sm sm:text-base'>Posts</span>
           </button>
-          <span className="text-gray-400">
-            {lastSaved ? `Saved ${new Date(lastSaved).toLocaleTimeString()}` : 'Draft'}
+          <span className="text-gray-400 text-xs sm:text-sm">
+            {lastSaved ? 'Draft - Saved' : 'Draft'}
           </span>
         </div>
         
-        <div className="flex items-center space-x-3 -mr-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <PanelRight 
             size={14}
-            className="text-gray-500 cursor-pointer hover:text-gray-900 transition-colors mr-6"
+            className="text-gray-500 cursor-pointer hover:text-gray-900 transition-colors hidden sm:block"
           />
-          <button className="px-3 py-2 bg-black text-white cursor-pointer rounded-lg hover:bg-gray-900 transition-colors font-medium">
+          <button className="px-2 sm:px-3 py-1.5 sm:py-2 bg-black text-white cursor-pointer rounded-lg hover:bg-gray-900 transition-colors font-medium font-inter text-sm">
             Preview
           </button>
           <button 
             onClick={publishPost}
-            className="px-3 py-2 bg-green-600 text-white cursor-pointer rounded-lg hover:bg-green-600/80 transition-colors font-medium border border-green-600"
+            className="px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 text-white cursor-pointer rounded-lg hover:bg-green-600/80 transition-colors font-medium font-inter border border-green-600 text-sm"
           >
             Publish
           </button>
         </div>
       </div>
 
-      <div className="max-w-[53rem] mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Cover Image Upload */}
-        <div className="p-8 -mt-4">
+        <div className="p-4 sm:p-6 lg:p-8 -mt-2 sm:-mt-4">
           <div 
-            className="border-2 border-dashed bg-white border-gray-300 rounded-lg p-25 text-center hover:border-green-400 transition-colors cursor-pointer group relative"
+            className="border-2 border-dashed bg-white border-gray-300 rounded-lg p-8 sm:p-16 lg:p-25 text-center hover:border-green-400 transition-colors cursor-pointer group relative"
             onClick={handleCoverImageClick}
             onDrop={handleCoverImageDrop}
             onDragOver={handleCoverImageDragOver}
@@ -1261,32 +1448,33 @@ const BlogEditor = () => {
                   alt="Cover" 
                   className="w-full h-auto object-cover rounded-lg"
                 />
-
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <AiOutlineCloudUpload size={24} className="text-gray-500 group-hover:text-green-500 mb-4 transition-colors" />
-                <p className="text-gray-500 font-medium">Click to upload post cover
-                <span className=" text-gray-400 font-normal ml-1">or drag and drop</span></p>
-                <p className="text-xs text-gray-400 mt-2">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                <VscCloudUpload size={20} className="sm:w-6 sm:h-6 text-gray-500 group-hover:text-green-500 mb-2 sm:mb-4 transition-colors" />
+                <p className="text-gray-500 font-medium text-sm sm:text-base">
+                  Click to upload post cover
+                  <span className="text-gray-400 font-normal ml-1 hidden sm:inline">or drag and drop</span>
+                </p>
+                <p className="text-xs text-gray-400 mt-1 sm:mt-2">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Title */}
-        <div className="mx-14 pb-5 border-b border-gray-300">
+        <div className="mx-4 sm:mx-8 lg:mx-14 pb-3 sm:pb-5 border-b border-gray-300">
           <input
             type="text"
             value={postTitle}
             onChange={handleTitleChange}
-            className="w-full text-4xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none leading-tight"
+            className="w-full text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none leading-tight"
             placeholder="Post title"
           />
         </div>
 
         {/* Editor */}
-        <div className="relative mx-6 mt-6" ref={editorRef}>
+        <div className="relative mx-2 sm:mx-4 lg:mx-6 mt-4 sm:mt-6 font-serif" ref={editorRef}>
           <EditorContent editor={editor} />
           
           <FloatingPlusMenu
@@ -1295,6 +1483,7 @@ const BlogEditor = () => {
             position={plusMenuPosition}
             onInsert={handleMediaInsert}
             openModal={openModal}
+            showHtmlModal={openHtmlModal}
           />
           
           <FloatingToolbar
@@ -1315,6 +1504,22 @@ const BlogEditor = () => {
         type={modalConfig.type}
         error={modalConfig.error}
         onSubmit={handleModalSubmit}
+      />
+
+      {/* Bookmark Modal */}
+      <BookmarkModal
+        isOpen={bookmarkModal.isOpen}
+        onClose={closeBookmarkModal}
+        onSubmit={handleBookmarkSubmit}
+        error={bookmarkModal.error}
+      />
+
+      {/* HTML Input Modal */}
+      <HtmlInputModal
+        isOpen={htmlModal.isOpen}
+        onClose={closeHtmlModal}
+        onSubmit={handleHtmlModalSubmit}
+        error={htmlModal.error}
       />
     </div>
   );

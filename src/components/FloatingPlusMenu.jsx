@@ -2,16 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Image as ImageIcon, 
-  Code, 
+  CodeXml, 
   Minus, 
   Bookmark, 
-  Youtube, 
-  Twitter, 
+  CirclePlay, 
+  Mic, 
   Camera 
 } from 'lucide-react';
-import { MediaInputManager } from './MediaInputHandlers';
+import { 
+  ImageUploadHandler, 
+  YouTubeInputHandler, 
+  HTMLInputHandler, 
+  TwitterInputHandler, 
+  PicsumInputHandler 
+} from './MediaInputHandlers';
 
-const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal }) => {
+const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal, showHtmlModal }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -38,54 +44,43 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal }) 
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleMenuClick = (type) => {
-    setIsMenuOpen(false);
-    
-    // Use MediaInputManager for consistent handling
-    if (MediaInputManager[type]) {
-      const handler = MediaInputManager[type]({ onInsert, editor, openModal });
-      handler();
-    } else {
-      // Fallback for types not in MediaInputManager
-      switch (type) {
-        case 'imageUrl':
-          if (openModal) {
-            openModal(
-              'Add Image from URL',
-              'Enter image URL (e.g., https://example.com/image.jpg)',
-              (imageUrl) => {
-                if (!imageUrl.trim()) {
-                  throw new Error('Image URL cannot be empty');
-                }
-                try {
-                  new URL(imageUrl);
-                } catch {
-                  throw new Error('Please enter a valid URL');
-                }
-                onInsert('image', { src: imageUrl });
-              }
-            );
-          } else {
-            const imageUrl = window.prompt('Enter image URL:');
-            if (imageUrl) {
-              onInsert('image', { src: imageUrl });
-            }
-          }
-          break;
-        default:
-          break;
-      }
+  const handleItemClick = (type) => {
+    switch (type) {
+      case 'image':
+        ImageUploadHandler({ onInsert, editor })();
+        break;
+      case 'youtube':
+        YouTubeInputHandler({ onInsert, editor, openModal })();
+        break;
+      case 'html':
+        HTMLInputHandler({ onInsert, editor, openModal, showHtmlModal })();
+        break;
+      case 'bookmark':
+        // Just call onInsert with 'bookmark' type, let BlogEditor handle the modal
+        onInsert('bookmark');
+        break;
+      case 'twitter':
+        TwitterInputHandler({ onInsert, openModal })();
+        break;
+      case 'picsum':
+        PicsumInputHandler({ onInsert, editor, openModal })();
+        break;
+      case 'divider':
+        onInsert('divider');
+        break;
+      default:
+        break;
     }
   };
 
   const menuItems = [
     { type: 'image', label: 'Photo', icon: ImageIcon },
     // { type: 'imageUrl', label: 'Image URL', icon: ImageIcon },
-    { type: 'html', label: 'HTML', icon: Code },
+    { type: 'html', label: 'HTML', icon: CodeXml },
     { type: 'divider', label: 'Divider', icon: Minus },
     { type: 'bookmark', label: 'Bookmark', icon: Bookmark },
-    { type: 'youtube', label: 'Youtube', icon: Youtube },
-    { type: 'twitter', label: 'Twitter', icon: Twitter },
+    { type: 'youtube', label: 'Youtube', icon: CirclePlay },
+    { type: 'twitter', label: 'Twitter', icon: Mic },
     { type: 'picsum', label: 'Picsum', icon: Camera },
   ];
 
@@ -93,7 +88,7 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal }) 
 
   return (
     <div 
-      className="absolute z-50 pointer-events-none"
+      className="absolute z-50 pointer-events-none font-sans"
       style={{ 
         left: `${position.x}px`, 
         top: `${position.y}px`,
@@ -104,20 +99,20 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal }) 
         <button
           onClick={handlePlusClick}
           onMouseDown={(e) => e.preventDefault()}
-          className="w-8 h-8 bg-gray-600 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-500 transition-colors shadow-sm opacity-90 hover:opacity-100"
+          className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-600 border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-500 transition-colors shadow-sm opacity-90 hover:opacity-100"
         >
-          <Plus size={16} className="text-white" />
+          <Plus size={12} className="sm:w-4 sm:h-4 text-white" />
         </button>
 
         {isMenuOpen && (
-          <div className="absolute left-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[160px] z-50">
+          <div className="absolute left-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[140px] sm:min-w-[160px] z-50">
             {menuItems.map(({ type, label, icon: Icon }) => (
               <button
                 key={type}
-                onClick={() => handleMenuClick(type)}
-                className="w-[95%] px-4 py-2 text-left hover:bg-gray-100 rounded-sm mx-auto flex items-center space-x-3 text-gray-700 transition-colors"
+                onClick={() => handleItemClick(type)}
+                className="w-[95%] px-3 sm:px-4 py-2 text-left hover:bg-gray-100 rounded-sm mx-auto flex items-center space-x-2 sm:space-x-3 text-gray-700 transition-colors text-sm sm:text-base"
               >
-                <Icon size={16} />
+                <Icon size={14} className="sm:w-4 sm:h-4" />
                 <span>{label}</span>
               </button>
             ))}

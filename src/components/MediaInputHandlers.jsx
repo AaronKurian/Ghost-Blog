@@ -271,18 +271,15 @@ export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
 };
 
 // HTML Input Handler
-export const HTMLInputHandler = ({ onInsert, editor, openModal }) => {
+export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal }) => {
   const handleHTMLInsert = () => {
-    if (openModal) {
-      // Use custom modal if available
-      openModal(
-        'Add HTML Code',
-        'Enter your HTML code...',
-        (htmlCode) => {
-          if (!htmlCode.trim()) {
-            throw new Error('HTML code cannot be empty');
-          }
-          
+    if (showHtmlModal) {
+      showHtmlModal((htmlCode) => {
+        if (!htmlCode || !htmlCode.trim()) {
+          throw new Error('HTML code cannot be empty');
+        }
+        
+        try {
           // Generate unique ID for this HTML embed
           const mediaId = `html_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
           
@@ -303,14 +300,63 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal }) => {
           localStorage.setItem('blog-images', JSON.stringify(storedImages));
           
           if (editor) {
-            // FIXED: Insert HTML directly using insertContent with proper wrapper
-            const wrappedHTML = `<div class="html-embed" data-media-id="${mediaId}" data-media-type="html" data-html-content="${htmlCode.replace(/"/g, '&quot;')}" style="margin: 16px 0;">${htmlCode}</div>`;
-            
-            editor.commands.insertContent(wrappedHTML, {
+            editor.commands.insertContent(htmlCode, {
               parseOptions: { preserveWhitespace: 'full' },
             });
           } else if (onInsert) {
             onInsert('html', { content: htmlCode.trim(), mediaId });
+          }
+        } catch (error) {
+          console.error('Error processing HTML:', error);
+          alert('Error processing HTML. Please try again.');
+        }
+      });
+    } else if (openModal) {
+      // Fallback to openModal if showHtmlModal not provided
+      openModal(
+        'Add HTML Code',
+        'Enter your HTML code...',
+        (htmlCode) => {
+          if (!htmlCode.trim()) {
+            throw new Error('HTML code cannot be empty');
+          }
+          
+          try {
+            // Generate unique ID for this HTML embed
+            const mediaId = `html_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+            
+            // Store HTML data in localStorage
+            const htmlData = {
+              id: mediaId,
+              type: 'html',
+              htmlContent: htmlCode.trim(),
+              timestamp: new Date().toISOString()
+            };
+            
+            // Store in localStorage using same pattern as other media
+            localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(htmlData));
+            
+            // Keep track of all stored media
+            const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
+            storedImages.push(mediaId);
+            localStorage.setItem('blog-images', JSON.stringify(storedImages));
+            
+            if (editor) {
+              // Insert HTML directly without wrapper - let Tiptap handle it
+              editor.commands.insertContent(htmlCode, {
+                parseOptions: { preserveWhitespace: 'full' },
+              });
+              
+              // Debug: Check what was actually inserted
+              setTimeout(() => {
+                console.log('🔧 HTMLInputHandler: Editor content after insert:', editor.getHTML());
+              }, 100);
+            } else if (onInsert) {
+              onInsert('html', { content: htmlCode.trim(), mediaId });
+            }
+          } catch (error) {
+            console.error('Error processing HTML:', error);
+            alert('Error processing HTML. Please try again.');
           }
         },
         'textarea'
@@ -340,12 +386,15 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal }) => {
           localStorage.setItem('blog-images', JSON.stringify(storedImages));
           
           if (editor) {
-            // FIXED: Insert HTML directly using insertContent with proper wrapper
-            const wrappedHTML = `<div class="html-embed" data-media-id="${mediaId}" data-media-type="html" data-html-content="${htmlCode.replace(/"/g, '&quot;')}" style="margin: 16px 0;">${htmlCode}</div>`;
-            
-            editor.commands.insertContent(wrappedHTML, {
+            // Insert HTML directly without wrapper - let Tiptap handle it
+            editor.commands.insertContent(htmlCode, {
               parseOptions: { preserveWhitespace: 'full' },
             });
+            
+            // Debug: Check what was actually inserted
+            setTimeout(() => {
+              console.log('🔧 HTMLInputHandler: Editor content after insert:', editor.getHTML());
+            }, 100);
           } else if (onInsert) {
             onInsert('html', { content: htmlCode.trim(), mediaId });
           }
@@ -361,35 +410,114 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal }) => {
 };
 
 // Bookmark Input Handler
-export const BookmarkInputHandler = ({ onInsert, openModal }) => {
-  const handleBookmarkInsert = () => {
-    if (openModal) {
-      openModal(
-        'Add Bookmark',
-        'Enter bookmark URL (e.g., https://example.com)',
-        (bookmarkUrl) => {
-          if (!bookmarkUrl.trim()) {
-            throw new Error('URL cannot be empty');
-          }
-          
-          try {
-            new URL(bookmarkUrl);
-          } catch {
-            throw new Error('Please enter a valid URL');
-          }
-          
-          onInsert('bookmark', { url: bookmarkUrl });
-        }
-      );
-    } else {
-      const bookmarkUrl = window.prompt('Enter bookmark URL:');
-      if (bookmarkUrl) {
-        onInsert('bookmark', { url: bookmarkUrl });
+export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmarkModal }) => {
+  const handleBookmarkInsert = async (bookmarkUrl) => {
+    if (!bookmarkUrl || !bookmarkUrl.trim()) {
+      throw new Error('URL cannot be empty');
+    }
+
+    try {
+      const url = new URL(bookmarkUrl.trim());
+      const domain = url.hostname;
+      
+      // Show loading state first
+      const loadingHTML = `
+        <div class="bookmark-card">
+          <div class="bookmark-content">
+            <div style="color: #6b7280; font-size: 0.875rem;">Loading bookmark...</div>
+          </div>
+        </div>
+      `;
+      
+      // Insert loading state first
+      if (editor) {
+        editor.commands.insertContent(loadingHTML, {
+          parseOptions: { preserveWhitespace: 'full' },
+        });
       }
+      
+      // Import and fetch real metadata
+      const { fetchMetadata } = await import('../utils/metadataFetcher');
+      const metadata = await fetchMetadata(bookmarkUrl.trim());
+      
+      // Create beautiful bookmark with real data using CSS classes
+      const bookmarkHTML = `
+        <div class="bookmark-card" data-bookmark-url="${bookmarkUrl.trim()}">
+          <a href="${bookmarkUrl.trim()}" target="_blank" rel="noopener noreferrer">
+          <div class="bookmark-footer">
+            <img src="${metadata.favicon || `https://www.google.com/s2/favicons?sz=16&domain=${domain}`}" alt="" class="bookmark-favicon" onerror="this.style.display='none';" />
+            <span class="bookmark-site">
+            ${metadata.site || domain}
+            </span>
+            </div>
+            </a>
+            <div class="bookmark-content">
+              <h4 class="bookmark-title">
+                ${metadata.title || domain}
+              </h4>
+              <p class="bookmark-description">
+                ${metadata.description || 'No description available'}
+              </p>
+            </div>
+        </div>
+      `;
+      
+      // Replace loading state with actual bookmark
+      if (editor) {
+        // Get current content and replace the loading bookmark with the real one
+        const currentContent = editor.getHTML();
+        const updatedContent = currentContent.replace(/Loading bookmark\.\.\./g, '');
+        
+        // Clear and insert the new bookmark
+        editor.commands.selectAll();
+        editor.commands.insertContent(updatedContent + bookmarkHTML, {
+          parseOptions: { preserveWhitespace: 'full' },
+        });
+      } else if (onInsert) {
+        // For non-editor contexts, call onInsert with bookmark type
+        onInsert('bookmark', { url: bookmarkUrl.trim(), html: bookmarkHTML });
+      }
+      
+    } catch (error) {
+      console.error('Error creating bookmark:', error);
+      // If metadata fetch fails, create a simple bookmark
+      const domain = new URL(bookmarkUrl.trim()).hostname;
+      const fallbackHTML = `
+        <div class="bookmark-card">
+          <a href="${bookmarkUrl.trim()}" target="_blank" rel="noopener noreferrer">
+          </a>
+            <div class="bookmark-content">
+              <p class="bookmark-description">
+                Visit ${domain} for more information
+              </p>
+            </div>
+        </div>
+      `;
+      
+      if (editor) {
+        editor.commands.insertContent(fallbackHTML, {
+          parseOptions: { preserveWhitespace: 'full' },
+        });
+      }
+      
+      throw error; // Re-throw to show error in modal
     }
   };
 
-  return handleBookmarkInsert;
+  // Return the function that opens the bookmark modal
+  return () => {
+    if (openBookmarkModal) {
+      openBookmarkModal();
+    } else {
+      // Fallback to window.prompt if bookmark modal not available
+      const bookmarkUrl = window.prompt('Enter bookmark URL:');
+      if (bookmarkUrl && bookmarkUrl.trim()) {
+        handleBookmarkInsert(bookmarkUrl.trim()).catch(error => {
+          alert('Error creating bookmark: ' + error.message);
+        });
+      }
+    }
+  };
 };
 
 // Twitter Input Handler

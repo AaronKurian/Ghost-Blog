@@ -1,7 +1,11 @@
 // Enhanced metadata fetcher that attempts to get real website data
 export const fetchMetadata = async (url) => {
+  console.log('🔍 fetchMetadata called with URL:', url);
+  console.log('🔍 URL type:', typeof url);
+  
   try {
     const domain = new URL(url).hostname;
+    console.log('🔍 Extracted domain:', domain);
     
     // First, try to fetch real metadata using a CORS proxy or other methods
     try {
@@ -93,13 +97,15 @@ export const fetchMetadata = async (url) => {
     }
     
     // Method 3: Enhanced fallback with better domain-specific handling
+    console.log('🔍 Using enhanced fallback');
     const enhancedMetadata = getEnhancedFallbackMetadata(url, domain);
+    console.log('🔍 Enhanced fallback result:', enhancedMetadata);
     return enhancedMetadata;
     
   } catch (error) {
-    console.error('Error fetching metadata:', error);
+    console.error('🔍 Error fetching metadata:', error);
     const domain = new URL(url).hostname;
-    return {
+    const fallbackResult = {
       title: `Link from ${domain}`,
       description: 'Click to visit this link',
       image: `https://www.google.com/s2/favicons?sz=64&domain=${domain}`,
@@ -107,6 +113,8 @@ export const fetchMetadata = async (url) => {
       site: domain,
       url: url,
     };
+    console.log('🔍 Final fallback result:', fallbackResult);
+    return fallbackResult;
   }
 };
 

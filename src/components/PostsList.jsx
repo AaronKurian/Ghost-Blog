@@ -7,8 +7,8 @@ import {
   X,
   Pencil,
   Trash2,
-  Plus
 } from 'lucide-react';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return 'Unknown';
@@ -38,16 +38,29 @@ const formatRelativeTime = (dateString) => {
 
 const PostsList = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    postId: null,
+    postTitle: ''
+  });
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const posts = useSelector(state => state.posts.posts);
 
-  // Filter posts based on search
-  const filteredPosts = posts.filter(post =>
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter posts based on search - FIXED to handle undefined tags
+  const filteredPosts = posts.filter(post => {
+    const title = post.title || '';
+    const excerpt = post.excerpt || '';
+    const content = post.content || '';
+    const tags = post.tags || []; // Default to empty array if undefined
+    
+    return (
+      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  });
 
   const handleCreateNew = () => {
     navigate('/editor/new');
@@ -58,9 +71,31 @@ const PostsList = () => {
   };
 
   const handleDeletePost = (postId) => {
-    if (window.confirm('Are you sure you want to delete this post?')) {
-      dispatch(deletePost(postId));
+    const post = posts.find(p => p.id === postId);
+    setDeleteModal({
+      isOpen: true,
+      postId: postId,
+      postTitle: post ? post.title : 'Untitled Post'
+    });
+  };
+
+  const confirmDelete = () => {
+    if (deleteModal.postId) {
+      dispatch(deletePost(deleteModal.postId));
     }
+    setDeleteModal({
+      isOpen: false,
+      postId: null,
+      postTitle: ''
+    });
+  };
+
+  const cancelDelete = () => {
+    setDeleteModal({
+      isOpen: false,
+      postId: null,
+      postTitle: ''
+    });
   };
 
   return (
@@ -108,18 +143,18 @@ const PostsList = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 
-                    className="text-xl font-semibold text-black cursor-pointer mb-1" 
+                    className="text-xl font-semibold text-black cursor-pointer mb-1 " 
                     onClick={() => handleEditPost(post.id)}
                   >
                     {post.title}
                   </h3>
                   
-                  <p className="text-gray-500 leading-relaxed font-medium mb-1">
-                    {post.excerpt}
+                  <p className="text-gray-500 leading-relaxed font-medium font-sans mb-1 overflow-hidden text-ellipsis whitespace-nowrap max-w-[10rem] sm:max-w-[20rem] md:max-w-[30rem] lg:max-w-[44rem]">
+                    {post.content ? post.content.replace(/<[^>]*>/g, '') : 'No content available'}
                   </p>
                   
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 font-sans">
                       <span>{formatRelativeTime(post.updatedAt || post.createdAt || new Date().toISOString())}</span>
                     </div>
                   </div>
@@ -169,6 +204,14 @@ const PostsList = () => {
           </div>
         )}
       </div>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={cancelDelete}
+        onConfirm={confirmDelete}
+        postTitle={deleteModal.postTitle}
+      />
     </div>
   );
 };

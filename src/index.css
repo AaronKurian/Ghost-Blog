@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 body {
@@ -14,39 +15,40 @@ body {
 }
 
 .prose p {
-  margin-top: 1.25em;
-  margin-bottom: 1.25em;
+  margin-top: 0.75em !important;
+  margin-bottom: 0.75em !important;
+  line-height: 1.4 !important;
 }
 
 .prose h1, .prose h2, .prose h3 {
   color: #111827;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2 !important;
 }
 
 .prose h1 {
   font-size: 2.25em;
   margin-top: 0;
-  margin-bottom: 0.8888889em;
+  margin-bottom: 0.6em !important;
 }
 
 .prose h2 {
   font-size: 1.5em;
-  margin-top: 2em;
-  margin-bottom: 1em;
+  margin-top: 1.5em !important;
+  margin-bottom: 0.75em !important;
 }
 
 .prose h3 {
   font-size: 1.25em;
-  margin-top: 1.6em;
-  margin-bottom: 0.6em;
+  margin-top: 1.2em !important;
+  margin-bottom: 0.5em !important;
 }
 
 .prose blockquote {
   font-style: italic;
   border-left: 4px solid #e5e7eb;
   padding-left: 1em;
-  margin: 1.6em 0;
+  margin: 1.2em 0 !important;
 }
 
 .prose code {
@@ -73,14 +75,14 @@ body {
 }
 
 .prose ul, .prose ol {
-  margin-top: 1.25em;
-  margin-bottom: 1.25em;
+  margin-top: 0.75em !important;
+  margin-bottom: 0.75em !important;
   padding-left: 1.625em;
 }
 
 .prose li {
-  margin-top: 0.5em;
-  margin-bottom: 0.5em;
+  margin-top: 0.25em !important;
+  margin-bottom: 0.25em !important;
 }
 
 .prose a {
@@ -111,6 +113,15 @@ body {
   overflow: hidden;
 }
 
+/* Single line truncation utility - Updated */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Video embed styles */
 .video-embed {
   position: relative;
@@ -128,192 +139,381 @@ body {
   height: 100%;
 }
 
-/* Bookmark card styles */
-.bookmark-card {
-  margin: 1.7142857em 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5em;
-  padding: 1em;
-  background-color: #f9fafb;
-}
-
-/* Tweet embed styles */
-.tweet-embed {
-  margin: 1.7142857em 0;
-  text-align: center;
-}
-
-.tweet-embed blockquote {
-  display: inline-block;
-  margin: 0;
-  padding: 1em;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5em;
-  background-color: #f9fafb;
-}
-
-/* TipTap Editor Styles */
-.ProseMirror {
-  outline: none;
-  padding: 2rem;
-  min-height: 400px;
-  font-size: 1.125rem;
-  line-height: 1.75rem;
-  color: #374151;
-  /* background: white; */
-  border-radius: 0.5rem;
-}
-
-.ProseMirror .is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: #9ca3af;
-  pointer-events: none;
-  height: 0;
-}
-
-.ProseMirror p {
-  margin: 0 0 1em 0;
-}
-
-.ProseMirror h1, 
-.ProseMirror h2, 
-.ProseMirror h3 {
-  font-weight: 600;
-  margin: 1.5em 0 0.5em 0;
-}
-
-.ProseMirror h1 { 
-  font-size: 2rem; 
-}
-
-.ProseMirror h2 { 
-  font-size: 1.5rem; 
-}
-
-.ProseMirror h3 { 
-  font-size: 1.25rem; 
-}
-
-.ProseMirror ul, 
-.ProseMirror ol {
-  padding-left: 1.5rem;
-  margin: 1em 0;
-}
-
-.ProseMirror blockquote {
-  border-left: 4px solid #e5e7eb;
-  padding-left: 1rem;
-  margin: 1em 0;
-  font-style: italic;
-  color: #6b7280;
-}
-
-.ProseMirror code {
-  /* background-color: #f3f4f6; */
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-family: 'Courier New', monospace;
-}
-
-.ProseMirror hr {
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 2em 0;
-}
-
-.ProseMirror img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
-  margin: 1em 0;
-}
-
-/* Override for HTML embeds with data-raw-html attribute */
-[data-raw-html="true"] * {
-  all: unset !important;
-  display: revert !important;
-  color: revert !important;
-  font-family: inherit !important;
-  font-size: revert !important;
-  font-weight: revert !important;
-  text-decoration: revert !important;
-  margin: revert !important;
-  padding: revert !important;
-  background: revert !important;
-  border: revert !important;
-}
-
-[data-raw-html="true"] p {
-  display: block !important;
-  margin: 1em 0 !important;
-}
-
-[data-raw-html="true"] div {
-  display: block !important;
-}
-
-[data-raw-html="true"] span {
-  display: inline !important;
-}
-
-[data-raw-html="true"] h1, 
-[data-raw-html="true"] h2, 
-[data-raw-html="true"] h3,
-[data-raw-html="true"] h4, 
-[data-raw-html="true"] h5, 
-[data-raw-html="true"] h6 {
-  display: block !important;
-  font-weight: bold !important;
-}
-
-/* Specifically ensure inline styles work */
-[data-raw-html="true"] *[style] {
-  all: unset !important;
-  display: revert !important;
-}
-
-[data-raw-html="true"] p[style] {
-  display: block !important;
-  margin: 1em 0 !important;
-}
-
-/* Nuclear option - override ALL prose styles for raw HTML */
-.prose [data-raw-html="true"] *,
-.prose-lg [data-raw-html="true"] *,
-.ProseMirror [data-raw-html="true"] * {
-  all: unset !important;
-  display: revert !important;
-  color: revert !important;
-  font-family: inherit !important;
-  font-size: revert !important;
-  font-weight: revert !important;
-  text-decoration: revert !important;
-  margin: revert !important;
-  padding: revert !important;
-  background: revert !important;
-  border: revert !important;
-}
-
-.prose [data-raw-html="true"] p,
-.prose-lg [data-raw-html="true"] p,
-.ProseMirror [data-raw-html="true"] p {
-  display: block !important;
-  margin: 1em 0 !important;
-}
-
+/* HTML embed styles */
 .html-embed * {
-  all: unset !important;
-  display: revert !important;
-  color: revert !important;
-  font-size: revert !important;
-  font-weight: revert !important;
-  text-decoration: revert !important;
-  margin: revert !important;
-  padding: revert !important;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-decoration: inherit;
+  margin: inherit;
+  padding: inherit;
+  display: revert;
+}
+
+.html-embed *[style] {
+  all: revert;
 }
 
 .html-embed p {
-  display: block !important;
-  margin: 1em 0 !important;
+  display: block;
+  margin: 1em 0;
 }
+
+.bookmark-card a,
+.ProseMirror .bookmark-card a,
+.prose .bookmark-card a {
+  text-decoration: none !important;
+  color: inherit !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1rem !important;
+}
+
+.bookmark-card .bookmark-content,
+.ProseMirror .bookmark-card .bookmark-content,
+.prose .bookmark-card .bookmark-content {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.bookmark-card .bookmark-title,
+.ProseMirror .bookmark-card .bookmark-title,
+.prose .bookmark-card .bookmark-title {
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  margin: 0 0 0.5rem 0 !important;
+  line-height: 1.4 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  text-decoration: none !important;
+}
+
+.bookmark-card .bookmark-description,
+.ProseMirror .bookmark-card .bookmark-description,
+.prose .bookmark-card .bookmark-description {
+  font-size: 0.875rem !important;
+  color: #6b7280 !important;
+  line-height: 1 !important;
+  margin: 0 0 0.75rem 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  text-decoration: none !important;
+}
+
+.bookmark-card .bookmark-footer,
+.ProseMirror .bookmark-card .bookmark-footer,
+.prose .bookmark-card .bookmark-footer {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.bookmark-card .bookmark-favicon,
+.ProseMirror .bookmark-card .bookmark-favicon,
+.prose .bookmark-card .bookmark-favicon {
+  width: 16px !important;
+  height: 16px !important;
+  opacity: 0.7 !important;
+  border-radius: 2px !important;
+}
+
+.bookmark-card .bookmark-site,
+.ProseMirror .bookmark-card .bookmark-site,
+.prose .bookmark-card .bookmark-site {
+  font-size: 0.75rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+}
+
+.bookmark-card .bookmark-image,
+.ProseMirror .bookmark-card .bookmark-image,
+.prose .bookmark-card .bookmark-image {
+  width: 120px !important;
+  height: 80px !important;
+  background-color: #f3f4f6 !important;
+  border-radius: 0.375rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+}
+
+.bookmark-card .bookmark-image img,
+.ProseMirror .bookmark-card .bookmark-image img,
+.prose .bookmark-card .bookmark-image img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 0.375rem !important;
+}
+
+/* HTML embed styles */
+.html-embed * {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-decoration: inherit;
+  margin: inherit;
+  padding: inherit;
+  display: revert;
+}
+
+.html-embed *[style] {
+  all: revert;
+}
+
+.html-embed p {
+  display: block;
+  margin: 1em 0;
+}
+.bookmark-card .bookmark-description {
+  font-size: 0.875rem !important;
+  color: #6b7280 !important;
+  line-height: 1.5 !important;
+  margin: 0 0 0.75rem 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+}
+
+.bookmark-card .bookmark-footer {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.bookmark-card .bookmark-favicon {
+  width: 16px !important;
+  height: 16px !important;
+  opacity: 0.7 !important;
+  border-radius: 2px !important;
+}
+
+.bookmark-card .bookmark-site {
+  font-size: 0.75rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+}
+
+.bookmark-card .bookmark-image {
+  width: 120px !important;
+  height: 80px !important;
+  background-color: #f3f4f6 !important;
+  border-radius: 0.375rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+}
+
+.bookmark-card .bookmark-image img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 0.375rem !important;
+}
+
+/* Ensure bookmark cards work in all contexts */
+.prose .bookmark-card,
+.prose-lg .bookmark-card,
+.ProseMirror .bookmark-card {
+  all: revert !important;
+  margin: 1.7142857em 0 !important;
+  border: 1px solid #000000;
+  border-radius: 0.5rem !important;
+  padding: 1rem !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  display: block !important;
+}
+
+.prose .bookmark-card:hover,
+.prose-lg .bookmark-card:hover,
+.ProseMirror .bookmark-card:hover {
+  border-color: #282628;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  transform: translateY(-1px) !important;
+}
+
+
+
+/* Keep your normal prose styles, but do NOT override color for p[style] at all! */
+
+/* ...existing code... */
+
+/* Remove debug styles - clean CSS */
+.prose p {
+  color: #374151 !important;
+  margin-top: 0.75em !important;
+  margin-bottom: 0.75em !important;
+  line-height: 1.4 !important;
+}
+
+.prose-lg p {
+  color: #374151 !important;
+  margin-top: 0.75em !important;
+  margin-bottom: 0.75em !important;
+  line-height: 1 !important;
+  font-size: 1.15rem !important;
+}
+
+
+.ProseMirror p[style*="color"] {
+  color: inherit !important;
+}
+.prose p[style*="color"] {
+  color: var(--inline-color) !important;
+}
+.ProseMirror p[style*="color:red"] {
+  --inline-color: red;
+  color: red !important;
+}
+.prose p[style*="color:red"] {
+  --inline-color: red;
+  color: red !important;
+}
+.ProseMirror p[style*="color:blue"] {
+  --inline-color: blue;
+  color: blue !important;
+}
+.prose p[style*="color:blue"] {
+  --inline-color: blue;
+  color: blue !important;
+}
+.ProseMirror p[style*="color:green"] {
+  --inline-color: green;
+  color: green !important;
+}
+.prose p[style*="color:green"] {
+  --inline-color: green;
+  color: green !important;
+}
+.prose p {
+  color: unset !important;
+}
+.prose-lg p {
+  color: unset !important;
+}
+.ProseMirror p[style*="color"] {
+  color: inherit !important;
+}
+
+/* NUCLEAR OPTION: Use the most specific selectors possible */
+.prose-lg.prose-lg.prose-lg p[style*="color:red"],
+.prose.prose.prose p[style*="color:red"], 
+.ProseMirror.ProseMirror.ProseMirror p[style*="color:red"] {
+  color: red !important;
+}
+
+.prose-lg.prose-lg.prose-lg p[style*="color:blue"],
+.prose.prose.prose p[style*="color:blue"], 
+.ProseMirror.ProseMirror.ProseMirror p[style*="color:blue"] {
+  color: blue !important;
+}
+
+.prose-lg.prose-lg.prose-lg p[style*="color:green"],
+.prose.prose.prose p[style*="color:green"], 
+.ProseMirror.ProseMirror.ProseMirror p[style*="color:green"] {
+  color: green !important;
+}
+
+/* Even more specific - target the editor container directly */
+div[class*="prose"] p[style*="color:red"] {
+  color: red !important;
+}
+
+div[class*="prose"] p[style*="color:blue"] {
+  color: blue !important;
+}
+
+div[class*="prose"] p[style*="color:green"] {
+  color: green !important;
+}
+
+/* Most specific - target the exact editor classes */
+.prose.prose-lg.max-w-none p[style*="color:red"] {
+  color: red !important;
+}
+
+.prose.prose-lg.max-w-none p[style*="color:blue"] {
+  color: blue !important;
+}
+
+.prose.prose-lg.max-w-none p[style*="color:green"] {
+  color: green !important;
+}
+
+/* Remove debug styles - clean CSS */
+.prose p {
+  color: #374151 !important;
+  margin-top: 0.75em !important;
+  margin-bottom: 0.75em !important;
+  line-height: 1.4 !important;
+}
+
+.prose-lg p {
+  color: #374151 !important;
+  margin-top: 0.75em !important;
+  margin-bottom: 0.75em !important;
+  line-height: 1 !important;
+  font-size: 1.15rem !important;
+}
+
+.prose p[style*="color"] {
+  color: var(--inline-color) !important;
+}
+
+/* JavaScript will set these custom properties */
+.ProseMirror p[style*="color:red"] {
+  --inline-color: red;
+  color: red !important;
+}
+
+.prose p[style*="color:red"] {
+  --inline-color: red;
+  color: red !important;
+}
+
+.ProseMirror p[style*="color:blue"] {
+  --inline-color: blue;
+  color: blue !important;
+}
+
+.prose p[style*="color:blue"] {
+  --inline-color: blue;
+  color: blue !important;
+}
+
+.ProseMirror p[style*="color:green"] {
+  --inline-color: green;
+  color: green !important;
+}
+
+.prose p[style*="color:green"] {
+  --inline-color: green;
+  color: green !important;
+}
+
+/* Remove all conflicting styles */
+.prose p {
+  color: unset !important;
+}
+
+.prose-lg p {
+  color: unset !important;
+}
+

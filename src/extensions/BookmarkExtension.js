@@ -4,44 +4,27 @@ import { BookmarkNodeView } from './BookmarkNodeView';
 
 export const BookmarkExtension = Node.create({
   name: 'bookmark',
-
   group: 'block',
-
   atom: true,
 
   addAttributes() {
     return {
-      url: {
-        default: null,
-      },
-      title: {
-        default: null,
-      },
-      description: {
-        default: null,
-      },
-      image: {
-        default: null,
-      },
-      favicon: {
-        default: null,
-      },
-      site: {
-        default: null,
-      },
+      url: { default: null },
+      title: { default: null },
+      description: { default: null },
+      image: { default: null },
+      favicon: { default: null },
+      site: { default: null },
+      mediaId: { default: null },
     };
   },
 
   parseHTML() {
-    return [
-      {
-        tag: 'div[data-bookmark]',
-      },
-    ];
+    return [{ tag: 'div[data-bookmark]' }];
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-bookmark': '' })];
+    return ['div', mergeAttributes({ 'data-bookmark': '' }, HTMLAttributes)];
   },
 
   addNodeView() {
@@ -50,10 +33,11 @@ export const BookmarkExtension = Node.create({
 
   addCommands() {
     return {
-      setBookmark: (options) => ({ commands }) => {
-        return commands.insertContent({
+      setBookmark: attrs => ({ chain }) => {
+        console.log('🟢 [BookmarkExtension] setBookmark command called with:', attrs);
+        return chain().insertContent({
           type: this.name,
-          attrs: options,
+          attrs,
         });
       },
     };

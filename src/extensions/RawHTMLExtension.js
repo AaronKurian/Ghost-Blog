@@ -38,35 +38,23 @@ export const RawHTMLExtension = Node.create({
       dom.setAttribute('data-raw-html', 'true');
       dom.setAttribute('data-html-content', node.attrs.htmlContent);
       
-      // Create a shadow container to isolate styles
-      const shadowContainer = document.createElement('div');
-      shadowContainer.style.cssText = `
-        all: initial;
+      // Create container that preserves inline styles
+      const container = document.createElement('div');
+      container.className = 'html-embed-content';
+      container.style.cssText = `
+        margin: 16px 0;
         font-family: inherit;
         font-size: inherit;
         line-height: inherit;
         color: inherit;
-        margin: 16px 0;
-        * {
-          all: unset;
-          display: revert;
-          box-sizing: border-box;
-        }
       `;
       
-      // Insert the raw HTML
-      shadowContainer.innerHTML = node.attrs.htmlContent;
+      // Insert the raw HTML directly without style manipulation
+      container.innerHTML = node.attrs.htmlContent;
       
-      // Apply styles directly to elements with style attributes
-      const styledElements = shadowContainer.querySelectorAll('[style]');
-      styledElements.forEach(el => {
-        const style = el.getAttribute('style');
-        if (style) {
-          el.style.cssText = style + ' !important';
-        }
-      });
+      // Don't override inline styles - let them be preserved naturally
       
-      dom.appendChild(shadowContainer);
+      dom.appendChild(container);
       
       return {
         dom,
