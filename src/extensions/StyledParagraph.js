@@ -34,11 +34,8 @@ export const StyledParagraph = Paragraph.extend({
   addNodeView() {
     return ({ node }) => {
       const dom = document.createElement('p');
-      // Apply the style attribute ONCE, only if present
       if (node.attrs.style) {
-        // Set the style attribute
         dom.setAttribute('style', node.attrs.style);
-        // Also force each property with !important
         node.attrs.style.split(';').forEach(style => {
           const [property, value] = style.split(':').map(s => s && s.trim());
           if (property && value) {
@@ -46,12 +43,10 @@ export const StyledParagraph = Paragraph.extend({
           }
         });
       }
-      // Use the <p> as contentDOM (block-level, correct for ProseMirror)
       return {
         dom,
         contentDOM: dom,
         update: updatedNode => {
-          // Only update style if it changed
           if (updatedNode.attrs.style !== node.attrs.style) {
             if (updatedNode.attrs.style) {
               dom.setAttribute('style', updatedNode.attrs.style);
@@ -63,7 +58,7 @@ export const StyledParagraph = Paragraph.extend({
               });
             } else {
               dom.removeAttribute('style');
-              dom.removeAttribute('style'); // Remove all forced styles
+              dom.removeAttribute('style');
             }
           }
           return true;

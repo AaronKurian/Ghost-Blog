@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Link, Globe, FileText, Image } from 'lucide-react';
+import { X, Link } from 'lucide-react';
 
 const BookmarkModal = ({ isOpen, onClose, onSubmit, error }) => {
   const [url, setUrl] = useState('');
@@ -7,7 +7,6 @@ const BookmarkModal = ({ isOpen, onClose, onSubmit, error }) => {
   
   useEffect(() => {
     if (isOpen) {
-      // Focus the input when modal opens
       setTimeout(() => {
         document.getElementById('bookmark-url')?.focus();
       }, 100);

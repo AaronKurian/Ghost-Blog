@@ -1,4 +1,3 @@
-import React from 'react';
 import GhostBlogEditor from './components/GhostBlogEditor';
 import './App.css';
 

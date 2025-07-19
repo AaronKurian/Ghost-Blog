@@ -17,33 +17,10 @@ import FloatingToolbar from './FloatingToolbar';
 import FloatingPlusMenu from './FloatingPlusMenu';
 import { VscCloudUpload } from "react-icons/vsc";
 import { ChevronLeft, PanelRight } from 'lucide-react';
-import { ImageStorage } from '../utils/imageStorage';
 import CustomModal from './CustomModal';
 import BookmarkModal from './BookmarkModal';
-import { BookmarkInputHandler } from './MediaInputHandlers';
 import HtmlInputModal from './HtmlInputModal';
 
-// Simple YouTube embed function
-const createYouTubeEmbed = (url) => {
-  const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-  if (videoId) {
-    return `
-      <div class="video-embed my-6">
-        <div class="relative w-full h-0 pb-[56.25%]">
-          <iframe 
-            src="https://www.youtube.com/embed/${videoId[1]}" 
-            frameborder="0" 
-            allowfullscreen
-            class="absolute top-0 left-0 w-full h-full rounded-lg"
-          ></iframe>
-        </div>
-      </div>
-    `;
-  }
-  return null;
-};
-
-// Add a custom extension to allow iframes
 const IframeExtension = Node.create({
   name: 'iframe',
   group: 'block',
@@ -176,7 +153,6 @@ const BlogEditor = () => {
 
   const handleBookmarkSubmit = async (url) => {
     try {
-      // Create bookmark directly here instead of using the handler
       if (!url || !url.trim()) {
         throw new Error('URL cannot be empty');
       }
@@ -184,7 +160,6 @@ const BlogEditor = () => {
       const urlObj = new URL(url.trim());
       const domain = urlObj.hostname;
       
-      // Show loading state first
       const loadingHTML = `
         <div class="bookmark-card">
           <div class="bookmark-content">
@@ -193,18 +168,15 @@ const BlogEditor = () => {
         </div>
       `;
       
-      // Insert loading state first
       if (editor) {
         editor.commands.insertContent(loadingHTML, {
           parseOptions: { preserveWhitespace: 'full' },
         });
       }
       
-      // Import and fetch real metadata
       const { fetchMetadata } = await import('../utils/metadataFetcher');
       const metadata = await fetchMetadata(url.trim());
       
-      // Create beautiful bookmark with real data using CSS classes
       const bookmarkHTML = `
         <div class="bookmark-card" data-bookmark-url="${url.trim()}">
           <a href="${url.trim()}" target="_blank" rel="noopener noreferrer">
@@ -226,12 +198,10 @@ const BlogEditor = () => {
         </div>
       `;
       
-      // Replace loading state with actual bookmark
       if (editor) {
         const currentContent = editor.getHTML();
         const updatedContent = currentContent.replace(/Loading bookmark\.\.\./g, '');
         
-        // Clear and insert the new bookmark
         editor.commands.selectAll();
         editor.commands.insertContent(updatedContent + bookmarkHTML, {
           parseOptions: { preserveWhitespace: 'full' },
@@ -245,7 +215,6 @@ const BlogEditor = () => {
     }
   };
 
-  // Initialize or find post
   useEffect(() => {
     if (isNew) {
       if (!postInitializedRef.current) {
@@ -256,7 +225,7 @@ const BlogEditor = () => {
           content: '',
           status: 'draft',
           coverImage: null,
-          coverImageId: null, // NEW: Store cover image ID
+          coverImageId: null, 
           imageIds: []
         };
         dispatch(setCurrentPost(newPost));
@@ -286,14 +255,12 @@ const BlogEditor = () => {
     }
   }, [id, isNew, navigate, dispatch]);
 
-  // Reset initialization when route changes
   useEffect(() => {
     postInitializedRef.current = false;
     editorContentSetRef.current = false;
-    editorReadyRef.current = false; // FIXED: Reset editor ready flag too
+    editorReadyRef.current = false; 
   }, [id]);
 
-  // Enhanced autosave function - FIXED to prevent duplicates
   const autosave = throttle(2000, (title, content) => {
     if (currentPost && editor && isInitialized) {
       const excerpt = editor.getText().substring(0, 300);
@@ -337,7 +304,6 @@ const BlogEditor = () => {
     }
   });
 
-  // FIXED: Extract media IDs from content (images + youtube + html)
   const extractImageIds = (htmlContent) => {
     const imageIds = [];
     
@@ -397,7 +363,6 @@ const BlogEditor = () => {
     return imageIds;
   };
 
-  // UPDATED: Image upload handler with FORCED attribute setting
   const handleImageUpload = async (file) => {
     try {
       if (file.size > 5 * 1024 * 1024) {
@@ -460,12 +425,12 @@ const BlogEditor = () => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        paragraph: false, // disable default paragraph
+        paragraph: false,
         heading: {
           levels: [2, 3],
         },
       }),
-      StyledParagraph, // use our custom styled paragraph instead
+      StyledParagraph,
       Placeholder.configure({
         placeholder: 'Begin writing your post...',
       }),
@@ -478,7 +443,6 @@ const BlogEditor = () => {
         HTMLAttributes: {
           class: 'rounded-lg max-w-full h-auto my-4',
         },
-        // FIXED: Allow custom data attributes to be preserved
         allowBase64: true,
         inline: false,
         addAttributes() {
@@ -553,14 +517,12 @@ const BlogEditor = () => {
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Autosave after user stops typing
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
         if (isInitialized) {
           const hasContent = editor.getText().trim().length > 0;
           const hasTitle = postTitle.trim().length > 0;
           
-          // Only autosave if we have both title AND content, or if it's an existing post
           if ((hasTitle && hasContent) || !isNew) {
             autosave(postTitle, editor.getHTML());
           }
@@ -588,105 +550,7 @@ const BlogEditor = () => {
     },
   });
 
-  // Define bookmark processing function completely outside handleMediaInsert
-  const processBookmark = useCallback(async (url, mediaId) => {
-    console.log('📖 processBookmark function called with URL:', url);
-    console.log('📖 URL type:', typeof url, 'length:', url?.length);
-    console.log('📖 Media ID:', mediaId);
-    
-    if (!url || !url.trim()) {
-      console.error('📖 URL is empty');
-      throw new Error('URL cannot be empty');
-    }
 
-    const trimmedUrl = url.trim();
-    console.log('📖 Trimmed URL:', trimmedUrl);
-
-    // Basic URL validation
-    try {
-      const validatedUrl = new URL(trimmedUrl);
-      console.log('📖 URL validation passed:', validatedUrl.href);
-    } catch (urlError) {
-      console.error('📖 URL validation failed:', urlError);
-      throw new Error('Please enter a valid URL');
-    }
-
-    try {
-      console.log('📖 About to fetch metadata...');
-      const metadata = await fetchMetadata(trimmedUrl);
-      console.log('📖 Metadata received:', metadata);
-      
-      // Store bookmark data in localStorage for persistence
-      const bookmarkData = {
-        id: mediaId,
-        type: 'bookmark',
-        url: trimmedUrl,
-        title: metadata.title || 'Bookmark',
-        description: metadata.description || trimmedUrl,
-        image: metadata.image,
-        favicon: metadata.favicon,
-        site: metadata.site,
-        timestamp: new Date().toISOString()
-      };
-      
-      localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(bookmarkData));
-      
-      const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
-      storedImages.push(mediaId);
-      localStorage.setItem('blog-images', JSON.stringify(storedImages));
-      
-      // Check if BookmarkExtension is registered and has the setBookmark command
-      if (editor.commands.setBookmark) {
-        console.log('📖 Using BookmarkExtension with command:', editor.commands.setBookmark);
-        
-        editor.chain().focus().setBookmark({
-          url: trimmedUrl,
-          title: metadata.title || 'Bookmark',
-          description: metadata.description || trimmedUrl,
-          image: metadata.image,
-          favicon: metadata.favicon,
-          site: metadata.site,
-        }).run();
-        
-        console.log('📖 BookmarkExtension insertion completed');
-      } else {
-        console.log('📖 Using fallback HTML bookmark implementation');
-        
-        // Use a fallback HTML implementation if the extension isn't working
-        const bookmarkHTML = `
-          <div class="bookmark-card border rounded-lg p-4 my-4 bg-gray-50" data-media-id="${mediaId}" data-media-type="bookmark">
-            <a href="${trimmedUrl}" target="_blank" rel="noopener noreferrer" class="flex">
-              <div class="flex-1">
-                <div class="flex items-center space-x-2 mb-2">
-                  ${metadata.favicon ? `<img src="${metadata.favicon}" alt="" class="w-4 h-4" />` : ''}
-                  <span class="text-sm text-gray-500">${metadata.site || new URL(trimmedUrl).hostname}</span>
-                </div>
-                <h4 class="font-semibold text-gray-900 mb-2">${metadata.title || trimmedUrl}</h4>
-                ${metadata.description ? `<p class="text-sm text-gray-600">${metadata.description}</p>` : ''}
-              </div>
-              ${metadata.image ? `
-                <div class="w-32 h-24 bg-gray-100 flex-shrink-0 ml-4">
-                  <img src="${metadata.image}" alt="" class="w-full h-full object-cover" />
-                </div>
-              ` : ''}
-            </a>
-          </div>
-        `;
-        
-        console.log('📖 Inserting bookmark HTML');
-        editor.commands.insertContent(bookmarkHTML, {
-          parseOptions: { preserveWhitespace: 'full' },
-        });
-      }
-      
-      console.log('📖 Bookmark inserted successfully');
-    } catch (error) {
-      console.error('📖 Error creating bookmark:', error);
-      throw new Error('Failed to create bookmark: ' + error.message);
-    }
-  }, [editor, fetchMetadata]);
-
-  // UPDATED: Media insertion handler with proper async handling
   const handleMediaInsert = async (type, data) => {
     if (!editor) return;
     
@@ -805,7 +669,6 @@ const BlogEditor = () => {
         break;
 
       case 'bookmark':
-        // Open the bookmark modal instead of using window.prompt
         openBookmarkModal();
         break;
 
@@ -819,24 +682,19 @@ const BlogEditor = () => {
     setPlusMenuVisible(false);
   };
 
-  // Handle title change - simplified logic
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     setPostTitle(newTitle);
-    
-    // Don't trigger immediate autosave for title-only changes
-    // Let the regular typing timeout handle it
+
     if (isInitialized && editor) {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Use same timeout as content changes to avoid premature saves
       typingTimeoutRef.current = setTimeout(() => {
         const hasContent = editor.getText().trim().length > 0;
         const hasTitle = newTitle.trim().length > 0;
         
-        // Only autosave if we have both title AND content, or if it's an existing post
         if ((hasTitle && hasContent) || !isNew) {
           autosave(newTitle, editor.getHTML());
         }
@@ -844,7 +702,6 @@ const BlogEditor = () => {
     }
   };
 
-  // UPDATED: Publish post function - ensure it's properly defined
   const publishPost = useCallback(() => {
     if (currentPost && editor) {
       const finalTitle = postTitle.trim() || 'Untitled Post';
@@ -878,7 +735,6 @@ const BlogEditor = () => {
     }
   }, [currentPost, editor, postTitle, extractImageIds, coverImage, posts, dispatch, navigate]);
 
-  // Handle cover image upload
   const handleCoverImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -933,21 +789,7 @@ const BlogEditor = () => {
     }
   };
 
-  // Remove cover image
-  const handleRemoveCoverImage = () => {
-    setCoverImage(null);
-    
-    if (currentPost) {
-      const updatedPost = {
-        ...currentPost,
-        coverImage: null,
-        coverImageId: null
-      };
-      dispatch(setCurrentPost(updatedPost));
-    }
-  };
 
-  // Handle cover image click
   const handleCoverImageClick = () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -956,7 +798,6 @@ const BlogEditor = () => {
     fileInput.click();
   };
 
-  // Handle cover image drag and drop
   const handleCoverImageDrop = (event) => {
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
@@ -970,7 +811,6 @@ const BlogEditor = () => {
     event.preventDefault();
   };
 
-  // Enhanced selection handling that triggers on various events
   const triggerSelectionCheck = () => {
     if (editor && editor.view && editor.view.dom && editor.view.editable) {
       setTimeout(() => {
@@ -979,7 +819,6 @@ const BlogEditor = () => {
     }
   };
 
-  // Handle selection change - fixed positioning logic with better error handling
   const handleSelectionChange = (editor) => {
     if (!editor || !editor.view) return;
     
@@ -1055,7 +894,6 @@ const BlogEditor = () => {
     }
   };
 
-  // DEBUG: Log current post and editor state
   useEffect(() => {
     if (currentPost) {
       console.log('Current Post:', currentPost);
@@ -1063,7 +901,6 @@ const BlogEditor = () => {
     }
   }, [currentPost, editor]);
 
-  // Initialize or find post
   useEffect(() => {
     if (isNew) {
       if (!postInitializedRef.current) {
@@ -1074,7 +911,7 @@ const BlogEditor = () => {
           content: '',
           status: 'draft',
           coverImage: null,
-          coverImageId: null, // NEW: Store cover image ID
+          coverImageId: null, 
           imageIds: []
         };
         dispatch(setCurrentPost(newPost));
@@ -1104,23 +941,20 @@ const BlogEditor = () => {
     }
   }, [id, isNew, navigate, dispatch]);
 
-  // Reset initialization when route changes
   useEffect(() => {
     postInitializedRef.current = false;
     editorContentSetRef.current = false;
-    editorReadyRef.current = false; // FIXED: Reset editor ready flag too
+    editorReadyRef.current = false;
   }, [id]);
 
-  // UPDATED: Set initial content with HTML embed restoration
   useEffect(() => {
-    // Only proceed if editor is ready, we have a current post, and content hasn't been set
     if (!editorReadyRef.current || !currentPost || editorContentSetRef.current) {
       return;
     }
 
     let postContent = currentPost.content || '';
     
-    // NEW: Restore media (images + YouTube + HTML) from localStorage if we have mediaIds
+   // Restore media (images + YouTube + HTML) from localStorage if we have mediaIds
     if (currentPost.imageIds && currentPost.imageIds.length > 0) {
       currentPost.imageIds.forEach(mediaId => {
         try {
@@ -1130,16 +964,12 @@ const BlogEditor = () => {
             
             // Handle different media types
             if (parsedMediaData.type === 'youtube') {
-              // Parse the HTML content to find and update YouTube embeds
               const parser = new DOMParser();
               const doc = parser.parseFromString(postContent, 'text/html');
-              
-              // Look for YouTube embeds by data attributes or video ID
               const youtubeContainers = doc.querySelectorAll(`div[data-media-id="${mediaId}"], div[data-youtube-id="${mediaId}"]`);
               const youtubeIframes = doc.querySelectorAll(`iframe[data-youtube-id="${mediaId}"]`);
               
               if (youtubeContainers.length === 0 && youtubeIframes.length === 0) {
-                // YouTube embed not found in content, but we have the data - recreate it
                 const embedHTML = `
                   <div class="video-embed my-6" data-media-id="${mediaId}" data-media-type="youtube" data-youtube-id="${mediaId}">
                     <div class="relative w-full h-0 pb-[56.25%]">
@@ -1156,10 +986,8 @@ const BlogEditor = () => {
                   </div>
                 `;
                 
-                // Append to content (you might want to insert at specific position)
                 postContent += embedHTML;
               } else {
-                // Update existing YouTube embeds with proper data attributes
                 youtubeContainers.forEach(container => {
                   container.setAttribute('data-media-id', mediaId);
                   container.setAttribute('data-media-type', 'youtube');
@@ -1168,60 +996,43 @@ const BlogEditor = () => {
                 
                 youtubeIframes.forEach(iframe => {
                   iframe.setAttribute('data-youtube-id', mediaId);
-                  // Ensure iframe has correct src
                   iframe.src = `https://www.youtube.com/embed/${parsedMediaData.videoId}`;
                 });
                 
-                // Update postContent with the modified HTML
                 postContent = doc.body.innerHTML;
               }
             } else if (parsedMediaData.type === 'html') {
-              // Parse the HTML content to find and update HTML embeds
               const parser = new DOMParser();
               const doc = parser.parseFromString(postContent, 'text/html');
               
-              // Look for HTML embeds by data attributes
               const htmlContainers = doc.querySelectorAll(`div[data-media-id="${mediaId}"]`);
               
               if (htmlContainers.length === 0) {
-                // HTML embed not found in content, but we have the data - recreate it
                 const wrappedHTML = `<div data-raw-html="true" data-media-id="${mediaId}" data-media-type="html" data-html-content="${parsedMediaData.htmlContent.replace(/"/g, '&quot;')}">${parsedMediaData.htmlContent}</div>`;
-                
-                // Append to content (you might want to insert at specific position)
                 postContent += wrappedHTML;
               } else {
-                // Update existing HTML embeds with proper data attributes
                 htmlContainers.forEach(container => {
                   container.setAttribute('data-media-id', mediaId);
                   container.setAttribute('data-media-type', 'html');
                   container.setAttribute('data-raw-html', 'true');
                   container.setAttribute('data-html-content', parsedMediaData.htmlContent.replace(/"/g, '&quot;'));
-                  // Update the inner HTML content
                   container.innerHTML = parsedMediaData.htmlContent;
                 });
-                
-                // Update postContent with the modified HTML
                 postContent = doc.body.innerHTML;
               }
             } else {
-              // Handle regular images (existing logic)
               if (postContent.includes(parsedMediaData.data)) {
-                // Parse the HTML content
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(postContent, 'text/html');
                 const images = doc.querySelectorAll('img');
                 
-                // Find and update the matching image
                 images.forEach(img => {
                   if (img.src === parsedMediaData.data) {
-                    // Add the data attributes to this image
                     img.setAttribute('data-image-id', mediaId);
                     img.setAttribute('data-image-name', parsedMediaData.name);
                     img.setAttribute('data-stored-id', mediaId);
                   }
                 });
-                
-                // Update postContent with the modified HTML
                 postContent = doc.body.innerHTML;
               }
             }
@@ -1234,7 +1045,6 @@ const BlogEditor = () => {
       });
     }
     
-    // NEW: Restore cover image from localStorage if we have coverImageId
     if (currentPost.coverImageId) {
       try {
         const coverImageData = localStorage.getItem(`blog-image-${currentPost.coverImageId}`);
@@ -1243,20 +1053,17 @@ const BlogEditor = () => {
           setCoverImage(parsedCoverImageData.data);
         } else {
           console.warn('Cover image not found in localStorage:', currentPost.coverImageId);
-          // Fallback to original cover image if exists
           if (currentPost.coverImage) {
             setCoverImage(currentPost.coverImage);
           }
         }
       } catch (error) {
         console.error('Error restoring cover image:', currentPost.coverImageId, error);
-        // Fallback to original cover image if exists
         if (currentPost.coverImage) {
           setCoverImage(currentPost.coverImage);
         }
       }
     } else if (currentPost.coverImage) {
-      // Fallback for posts without coverImageId
       setCoverImage(currentPost.coverImage);
     }
 
@@ -1299,14 +1106,11 @@ const BlogEditor = () => {
     }
   }, [currentPost, editor, editorReadyRef.current]);
 
-  // Debug effect to track what's happening
   useEffect(() => {
     if (currentPost) {
-      // Removed debug console.log
     }
   }, [currentPost]);
 
-  // Cleanup global callbacks with proper cleanup
   useEffect(() => {
     return () => {
       if (window.storeYouTubeMedia) {
@@ -1321,9 +1125,7 @@ const BlogEditor = () => {
     };
   }, []);
 
-  // Add global style injection for HTML embeds
   useEffect(() => {
-    // Inject global CSS for HTML embeds
     const styleId = 'html-embed-styles';
     if (!document.getElementById(styleId)) {
       const style = document.createElement('style');
@@ -1361,7 +1163,6 @@ const BlogEditor = () => {
       document.head.appendChild(style);
     }
 
-    // Cleanup
     return () => {
       const existingStyle = document.getElementById(styleId);
       if (existingStyle) {
@@ -1370,7 +1171,6 @@ const BlogEditor = () => {
     };
   }, []);
 
-  // Add these handlers for the HTML modal
   const openHtmlModal = (onSubmit) => {
     setHtmlModal({
       isOpen: true,

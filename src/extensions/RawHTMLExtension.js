@@ -49,11 +49,8 @@ export const RawHTMLExtension = Node.create({
         color: inherit;
       `;
       
-      // Insert the raw HTML directly without style manipulation
       container.innerHTML = node.attrs.htmlContent;
-      
-      // Don't override inline styles - let them be preserved naturally
-      
+
       dom.appendChild(container);
       
       return {

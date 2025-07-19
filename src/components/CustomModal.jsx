@@ -9,8 +9,8 @@ const CustomModal = ({ isOpen, onClose, title, placeholder, onSubmit, type = 'te
   useEffect(() => {
     if (isOpen) {
       if (setValue) setValue('');
+      setLocalValue('');
       setLocalError(null);
-      // Focus input after modal opens
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -21,34 +21,32 @@ const CustomModal = ({ isOpen, onClose, title, placeholder, onSubmit, type = 'te
     setLocalError(error);
   }, [error]);
 
+  const inputValue = typeof value === 'string' ? value : localValue;
+  const handleInputChange = (e) => {
+    if (setValue) {
+      setValue(e.target.value);
+    } else {
+      setLocalValue(e.target.value);
+    }
+  };
+
   const handleSubmit = async () => {
-    console.log('🔄 CustomModal handleSubmit called with value:', value);
-    console.log('🔄 Value trimmed:', value.trim());
-    console.log('🔄 onSubmit type:', typeof onSubmit);
-    
-    if (!value.trim()) {
-      console.log('🔄 Setting error: field required');
+    const submitValue = typeof value === 'string' ? value : localValue;
+    console.log('🔄 CustomModal handleSubmit called with value:', submitValue);
+    if (!submitValue || !submitValue.trim()) {
       setLocalError('This field is required');
       return;
     }
-    
     setLocalError(null);
-    console.log('🔄 About to call onSubmit...');
-    
     try {
-      // Handle both sync and async onSubmit functions
-      const result = onSubmit(value.trim());
-      
-      // If onSubmit returns a promise, wait for it
+      const result = onSubmit(submitValue.trim());
       if (result && typeof result.then === 'function') {
         await result;
       }
-      
-      console.log('🔄 onSubmit completed successfully');
-      setValue('');
-      onClose(); // Close modal on success
+      if (setValue) setValue('');
+      setLocalValue('');
+      onClose();
     } catch (error) {
-      console.error('🔄 Error in onSubmit:', error);
       setLocalError(error.message || 'An error occurred');
     }
   };
@@ -94,8 +92,8 @@ const CustomModal = ({ isOpen, onClose, title, placeholder, onSubmit, type = 'te
               {type === 'textarea' ? (
                 <textarea
                   ref={inputRef}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
+                  value={inputValue}
+                  onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   placeholder={placeholder}
                   className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-colors resize-none h-24 sm:h-32 text-sm sm:text-base ${
@@ -106,8 +104,8 @@ const CustomModal = ({ isOpen, onClose, title, placeholder, onSubmit, type = 'te
                 <input
                   ref={inputRef}
                   type={type}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
+                  value={inputValue}
+                  onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   placeholder={placeholder}
                   className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-colors text-sm sm:text-base ${

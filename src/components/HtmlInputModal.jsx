@@ -22,7 +22,6 @@ const HtmlInputModal = ({ isOpen, onClose, onSubmit, error }) => {
       setHtmlValue('');
       onClose();
     } catch (err) {
-      // error is handled by parent via error prop
     } finally {
       setIsLoading(false);
     }

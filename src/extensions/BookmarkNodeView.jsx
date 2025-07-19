@@ -1,4 +1,3 @@
-import React from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 
 export const BookmarkNodeView = ({ node }) => {

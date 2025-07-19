@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 
 const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, postTitle }) => {
@@ -37,12 +36,6 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, postTitle }) => {
           <p className="text-gray-600 mb-4">
             Are you sure you want to delete the post <span className="font-medium text-gray-900">{postTitle}</span> ?
           </p>
-          {/* {postTitle && (
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-sm text-gray-500 mb-1">Post title:</p>
-              <p className="font-medium text-gray-900 truncate">{postTitle}</p>
-            </div>
-          )} */}
           <p className="text-sm text-red-600 font-medium">
             This will permanently delete the post and all its content.
           </p>

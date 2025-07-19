@@ -1,8 +1,5 @@
-import React from 'react';
 
-// Local storage utility for images
 const ImageStorage = {
-  // Store image in localStorage
   storeImage: (file, imageId) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -17,10 +14,8 @@ const ImageStorage = {
             timestamp: new Date().toISOString()
           };
           
-          // Store in localStorage
           localStorage.setItem(`blog-image-${imageId}`, JSON.stringify(imageData));
           
-          // Keep track of all stored images
           const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
           storedImages.push(imageId);
           localStorage.setItem('blog-images', JSON.stringify(storedImages));
@@ -35,7 +30,6 @@ const ImageStorage = {
     });
   },
 
-  // Retrieve image from localStorage
   getImage: (imageId) => {
     try {
       const imageData = localStorage.getItem(`blog-image-${imageId}`);
@@ -46,7 +40,6 @@ const ImageStorage = {
     }
   },
 
-  // Get all stored images
   getAllImages: () => {
     try {
       const imageIds = JSON.parse(localStorage.getItem('blog-images') || '[]');
@@ -57,7 +50,6 @@ const ImageStorage = {
     }
   },
 
-  // Delete image from localStorage
   deleteImage: (imageId) => {
     try {
       localStorage.removeItem(`blog-image-${imageId}`);
@@ -70,12 +62,10 @@ const ImageStorage = {
   }
 };
 
-// Generate unique image ID
 const generateImageId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
-// Image Upload Handler (File Upload)
 export const ImageUploadHandler = ({ onInsert, editor }) => {
   const handleImageUpload = () => {
     const fileInput = document.createElement('input');
@@ -87,27 +77,22 @@ export const ImageUploadHandler = ({ onInsert, editor }) => {
       const file = event.target.files?.[0];
       if (file) {
         try {
-          // Check file size (max 5MB)
-          const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+          const MAX_FILE_SIZE = 5 * 1024 * 1024;
           if (file.size > MAX_FILE_SIZE) {
             alert('File too large. Maximum size is 5MB.');
             return;
           }
           
-          // Check file type
           if (!file.type.startsWith('image/')) {
             alert('Please select an image file.');
             return;
           }
 
-          // Generate unique ID for this image
           const imageId = generateImageId();
           
-          // Store image in localStorage
           const imageData = await ImageStorage.storeImage(file, imageId);
           
           if (imageData && editor) {
-            // Use the proper Tiptap Image extension method instead of insertContent
             editor.chain().focus().setImage({ 
               src: imageData.data,
               alt: imageData.name,
@@ -135,7 +120,6 @@ export const ImageUploadHandler = ({ onInsert, editor }) => {
   return handleImageUpload;
 };
 
-// Image URL Input Handler
 export const ImageURLInputHandler = ({ onInsert, openModal }) => {
   const handleImageURLInsert = () => {
     if (openModal) {
@@ -167,11 +151,9 @@ export const ImageURLInputHandler = ({ onInsert, openModal }) => {
   return handleImageURLInsert;
 };
 
-// YouTube Input Handler
 export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
   const handleYouTubeInsert = () => {
     if (openModal) {
-      // Use custom modal if available
       openModal(
         'Add YouTube Video',
         'Enter YouTube URL (e.g., https://youtu.be/dQw4w9WgXcQ)',
@@ -201,7 +183,6 @@ export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
               }
             }).run();
 
-            // Store YouTube embed info in localStorage for restoration
             const youtubeData = {
               id: mediaId,
               type: 'youtube',
@@ -219,7 +200,6 @@ export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
         }
       );
     } else {
-      // Fallback to window.prompt
       const youtubeUrl = window.prompt('Enter YouTube URL:');
       if (youtubeUrl) {
         const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w\-]{11})(?:\S+)?/;
@@ -227,7 +207,6 @@ export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
 
         if (match && match[1]) {
           const videoId = match[1];
-          // Use IframeExtension for YouTube embeds
           if (editor) {
             const mediaId = `youtube_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
             editor.chain().focus().insertContent({
@@ -245,7 +224,6 @@ export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
               }
             }).run();
 
-            // Store YouTube embed info in localStorage for restoration
             const youtubeData = {
               id: mediaId,
               type: 'youtube',
@@ -270,7 +248,6 @@ export const YouTubeInputHandler = ({ onInsert, editor, openModal }) => {
   return handleYouTubeInsert;
 };
 
-// HTML Input Handler
 export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal }) => {
   const handleHTMLInsert = () => {
     if (showHtmlModal) {
@@ -280,10 +257,7 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
         }
         
         try {
-          // Generate unique ID for this HTML embed
           const mediaId = `html_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-          
-          // Store HTML data in localStorage
           const htmlData = {
             id: mediaId,
             type: 'html',
@@ -291,10 +265,8 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
             timestamp: new Date().toISOString()
           };
           
-          // Store in localStorage using same pattern as other media
           localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(htmlData));
           
-          // Keep track of all stored media
           const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
           storedImages.push(mediaId);
           localStorage.setItem('blog-images', JSON.stringify(storedImages));
@@ -312,7 +284,6 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
         }
       });
     } else if (openModal) {
-      // Fallback to openModal if showHtmlModal not provided
       openModal(
         'Add HTML Code',
         'Enter your HTML code...',
@@ -322,10 +293,7 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
           }
           
           try {
-            // Generate unique ID for this HTML embed
             const mediaId = `html_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-            
-            // Store HTML data in localStorage
             const htmlData = {
               id: mediaId,
               type: 'html',
@@ -333,21 +301,17 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
               timestamp: new Date().toISOString()
             };
             
-            // Store in localStorage using same pattern as other media
             localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(htmlData));
             
-            // Keep track of all stored media
             const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
             storedImages.push(mediaId);
             localStorage.setItem('blog-images', JSON.stringify(storedImages));
             
             if (editor) {
-              // Insert HTML directly without wrapper - let Tiptap handle it
               editor.commands.insertContent(htmlCode, {
                 parseOptions: { preserveWhitespace: 'full' },
               });
               
-              // Debug: Check what was actually inserted
               setTimeout(() => {
                 console.log('🔧 HTMLInputHandler: Editor content after insert:', editor.getHTML());
               }, 100);
@@ -362,14 +326,11 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
         'textarea'
       );
     } else {
-      // Fallback to window.prompt
       const htmlCode = window.prompt('Enter HTML code:');
       if (htmlCode && htmlCode.trim()) {
         try {
-          // Generate unique ID for this HTML embed
           const mediaId = `html_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
           
-          // Store HTML data in localStorage
           const htmlData = {
             id: mediaId,
             type: 'html',
@@ -377,21 +338,17 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
             timestamp: new Date().toISOString()
           };
           
-          // Store in localStorage using same pattern as other media
           localStorage.setItem(`blog-image-${mediaId}`, JSON.stringify(htmlData));
           
-          // Keep track of all stored media
           const storedImages = JSON.parse(localStorage.getItem('blog-images') || '[]');
           storedImages.push(mediaId);
           localStorage.setItem('blog-images', JSON.stringify(storedImages));
           
           if (editor) {
-            // Insert HTML directly without wrapper - let Tiptap handle it
             editor.commands.insertContent(htmlCode, {
               parseOptions: { preserveWhitespace: 'full' },
             });
             
-            // Debug: Check what was actually inserted
             setTimeout(() => {
               console.log('🔧 HTMLInputHandler: Editor content after insert:', editor.getHTML());
             }, 100);
@@ -409,7 +366,6 @@ export const HTMLInputHandler = ({ onInsert, editor, openModal, showHtmlModal })
   return handleHTMLInsert;
 };
 
-// Bookmark Input Handler
 export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmarkModal }) => {
   const handleBookmarkInsert = async (bookmarkUrl) => {
     if (!bookmarkUrl || !bookmarkUrl.trim()) {
@@ -420,7 +376,6 @@ export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmark
       const url = new URL(bookmarkUrl.trim());
       const domain = url.hostname;
       
-      // Show loading state first
       const loadingHTML = `
         <div class="bookmark-card">
           <div class="bookmark-content">
@@ -429,18 +384,15 @@ export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmark
         </div>
       `;
       
-      // Insert loading state first
       if (editor) {
         editor.commands.insertContent(loadingHTML, {
           parseOptions: { preserveWhitespace: 'full' },
         });
       }
       
-      // Import and fetch real metadata
       const { fetchMetadata } = await import('../utils/metadataFetcher');
       const metadata = await fetchMetadata(bookmarkUrl.trim());
       
-      // Create beautiful bookmark with real data using CSS classes
       const bookmarkHTML = `
         <div class="bookmark-card" data-bookmark-url="${bookmarkUrl.trim()}">
           <a href="${bookmarkUrl.trim()}" target="_blank" rel="noopener noreferrer">
@@ -462,25 +414,20 @@ export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmark
         </div>
       `;
       
-      // Replace loading state with actual bookmark
       if (editor) {
-        // Get current content and replace the loading bookmark with the real one
         const currentContent = editor.getHTML();
         const updatedContent = currentContent.replace(/Loading bookmark\.\.\./g, '');
         
-        // Clear and insert the new bookmark
         editor.commands.selectAll();
         editor.commands.insertContent(updatedContent + bookmarkHTML, {
           parseOptions: { preserveWhitespace: 'full' },
         });
       } else if (onInsert) {
-        // For non-editor contexts, call onInsert with bookmark type
         onInsert('bookmark', { url: bookmarkUrl.trim(), html: bookmarkHTML });
       }
       
     } catch (error) {
       console.error('Error creating bookmark:', error);
-      // If metadata fetch fails, create a simple bookmark
       const domain = new URL(bookmarkUrl.trim()).hostname;
       const fallbackHTML = `
         <div class="bookmark-card">
@@ -500,16 +447,14 @@ export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmark
         });
       }
       
-      throw error; // Re-throw to show error in modal
+      throw error;
     }
   };
 
-  // Return the function that opens the bookmark modal
   return () => {
     if (openBookmarkModal) {
       openBookmarkModal();
     } else {
-      // Fallback to window.prompt if bookmark modal not available
       const bookmarkUrl = window.prompt('Enter bookmark URL:');
       if (bookmarkUrl && bookmarkUrl.trim()) {
         handleBookmarkInsert(bookmarkUrl.trim()).catch(error => {
@@ -520,7 +465,6 @@ export const BookmarkInputHandler = ({ onInsert, openModal, editor, openBookmark
   };
 };
 
-// Twitter Input Handler
 export const TwitterInputHandler = ({ onInsert, openModal }) => {
   const handleTwitterInsert = () => {
     if (openModal) {
@@ -568,7 +512,6 @@ export const TwitterInputHandler = ({ onInsert, openModal }) => {
   return handleTwitterInsert;
 };
 
-// Picsum Photos Input Handler (replacing Unsplash)
 export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
   const handlePicsumInsert = async () => {
     if (openModal) {
@@ -586,7 +529,6 @@ export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
           
           const input = userInput.trim();
           
-          // Check if it's a full Picsum URL
           const urlMatch = input.match(/picsum\.photos\/id\/(\d+)/);
           if (urlMatch) {
             imageId = urlMatch[1];
@@ -601,13 +543,11 @@ export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
             }
           }
           
-          // Validate image ID
           const numericId = parseInt(imageId);
           if (isNaN(numericId) || numericId < 0 || numericId > 1084) {
             throw new Error('Invalid image ID. Enter a number between 0 and 1084.\n\nPopular IDs: 237 (dog), 1 (man), 10 (forest), 100 (mountain)');
           }
           
-          // Generate Picsum URL and insert image
           const imageUrl = `https://picsum.photos/id/${imageId}/${width}/${height}`;
           
           const testImage = new Image();
@@ -627,7 +567,6 @@ export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
         }
       );
     } else {
-      // Fallback to window.prompt (existing code)
       const userInput = window.prompt('Enter Picsum URL or image ID: ');
       
       if (userInput !== null && userInput.trim() !== '') {
@@ -638,19 +577,14 @@ export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
           
           const input = userInput.trim();
           
-          // Check if it's a full Picsum URL
           const urlMatch = input.match(/picsum\.photos\/id\/(\d+)/);
           if (urlMatch) {
-            // Extract ID from URL
             imageId = urlMatch[1];
           } else {
-            // Check if it's just an ID or ID/width/height format
             const parts = input.split('/');
             if (parts.length === 1) {
-              // Just ID provided
               imageId = parts[0];
             } else if (parts.length === 3) {
-              // ID/width/height format - still use our fixed 800x600
               imageId = parts[0];
             } else {
               alert('Invalid format. Please use:\n• Full URL: https://picsum.photos/id/237/200/300\n• Just ID: 237\n• ID with size: 237/800/600');
@@ -658,25 +592,19 @@ export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
             }
           }
           
-          // Validate image ID
           const numericId = parseInt(imageId);
           if (isNaN(numericId) || numericId < 0 || numericId > 1084) {
             alert('Invalid image ID. Please enter a number between 0 and 1084.\n\nPopular IDs:\n• 237 (dog)\n• 1 (man with hat)\n• 10 (forest)\n• 100 (mountain)');
             return;
           }
           
-          // Generate Picsum URL with extracted ID and fixed 800x600 size
           const imageUrl = `https://picsum.photos/id/${imageId}/${width}/${height}`;
           
-          // Test if image loads before inserting
           const testImage = new Image();
           testImage.onload = () => {
-            // FIXED: Use the proper insertion method for BlogEditor compatibility
             if (editor) {
-              // Generate unique storage ID for this Picsum image
               const storageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
               
-              // Insert image with proper data attributes for storage compatibility
               const imageHTML = `<img src="${imageUrl}" alt="Picsum Photo ${imageId}" class="rounded-lg max-w-full h-auto my-4" data-image-id="${storageId}" data-image-name="picsum-${imageId}.jpg" data-picsum-id="${imageId}" />`;
               
               editor.commands.insertContent(imageHTML);
@@ -728,7 +656,6 @@ export const PicsumInputHandler = ({ onInsert, editor, openModal }) => {
   return handlePicsumInsert;
 };
 
-// Utility function to clean up unused images
 export const cleanupUnusedImages = (editorContent) => {
   const allImages = ImageStorage.getAllImages();
   const usedImageIds = [];
@@ -746,7 +673,6 @@ export const cleanupUnusedImages = (editorContent) => {
   });
 };
 
-// Main Media Input Manager
 export const MediaInputManager = {
   image: ImageUploadHandler,
   imageUrl: ImageURLInputHandler,
@@ -756,9 +682,7 @@ export const MediaInputManager = {
   twitter: TwitterInputHandler,
   picsum: PicsumInputHandler,
   
-  // Simple handlers that don't need input
   divider: ({ onInsert }) => () => onInsert('divider', null),
 };
 
-// Export storage utilities
 export { ImageStorage };

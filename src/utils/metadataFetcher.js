@@ -17,31 +17,26 @@ export const fetchMetadata = async (url) => {
         const data = await response.json();
         const htmlContent = data.contents;
         
-        // Parse the HTML to extract metadata
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, 'text/html');
         
-        // Extract title
         let title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
                    doc.querySelector('meta[name="twitter:title"]')?.getAttribute('content') ||
                    doc.querySelector('title')?.textContent ||
                    `Content from ${domain}`;
         
-        // Extract description
         let description = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') ||
                          doc.querySelector('meta[name="twitter:description"]')?.getAttribute('content') ||
                          doc.querySelector('meta[name="description"]')?.getAttribute('content') ||
                          `Visit ${domain} for more information`;
         
-        // Extract image
         let image = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
                    doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
                    `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
         
-        // Clean up title and description
-        title = title.trim().substring(0, 100); // Limit title length
-        description = description.trim().substring(0, 200); // Limit description length
-        
+        title = title.trim().substring(0, 100);
+        description = description.trim().substring(0, 200);
+
         return {
           title,
           description,
@@ -175,7 +170,6 @@ const getEnhancedFallbackMetadata = (url, domain) => {
       const pathParts = urlPath.split('/').filter(part => part.length > 0);
       if (pathParts.length > 0) {
         const lastPart = pathParts[pathParts.length - 1];
-        // Clean up the last part of URL for better title
         const cleanTitle = lastPart
           .replace(/-/g, ' ')
           .replace(/_/g, ' ')
@@ -187,7 +181,6 @@ const getEnhancedFallbackMetadata = (url, domain) => {
       }
     }
   } catch (e) {
-    // Ignore URL parsing errors
   }
   
   return {

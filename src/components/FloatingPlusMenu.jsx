@@ -1,21 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  Image as ImageIcon, 
-  CodeXml, 
-  Minus, 
-  Bookmark, 
-  CirclePlay, 
-  Mic, 
-  Camera 
-} from 'lucide-react';
-import { 
-  ImageUploadHandler, 
-  YouTubeInputHandler, 
-  HTMLInputHandler, 
-  TwitterInputHandler, 
-  PicsumInputHandler 
-} from './MediaInputHandlers';
+import { Plus, Image as ImageIcon, CodeXml, Minus, Bookmark, CirclePlay, Mic, Camera } from 'lucide-react';
+import { ImageUploadHandler, YouTubeInputHandler, HTMLInputHandler, TwitterInputHandler, PicsumInputHandler } from './MediaInputHandlers';
 
 const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal, showHtmlModal }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -56,7 +41,6 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal, sh
         HTMLInputHandler({ onInsert, editor, openModal, showHtmlModal })();
         break;
       case 'bookmark':
-        // Just call onInsert with 'bookmark' type, let BlogEditor handle the modal
         onInsert('bookmark');
         break;
       case 'twitter':
@@ -75,7 +59,6 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal, sh
 
   const menuItems = [
     { type: 'image', label: 'Photo', icon: ImageIcon },
-    // { type: 'imageUrl', label: 'Image URL', icon: ImageIcon },
     { type: 'html', label: 'HTML', icon: CodeXml },
     { type: 'divider', label: 'Divider', icon: Minus },
     { type: 'bookmark', label: 'Bookmark', icon: Bookmark },
@@ -92,7 +75,7 @@ const FloatingPlusMenu = ({ editor, isVisible, position, onInsert, openModal, sh
       style={{ 
         left: `${position.x}px`, 
         top: `${position.y}px`,
-        transform: 'none' // Remove any transforms
+        transform: 'none'
       }}
     >
       <div className="relative pointer-events-auto" ref={menuRef}>

@@ -2,12 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { deletePost } from '../store/postsSlice';
-import {
-  Search,
-  X,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
+import { Search, X, Pencil, Trash2 } from 'lucide-react';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 const formatRelativeTime = (dateString) => {
@@ -16,7 +11,6 @@ const formatRelativeTime = (dateString) => {
   const now = new Date();
   const date = new Date(dateString);
   
-  // Check if date is valid
   if (isNaN(date.getTime())) return 'Unknown';
   
   const diffInMs = now - date;
@@ -47,18 +41,15 @@ const PostsList = () => {
   const dispatch = useDispatch();
   const posts = useSelector(state => state.posts.posts);
 
-  // Filter posts based on search - FIXED to handle undefined tags
   const filteredPosts = posts.filter(post => {
     const title = post.title || '';
     const excerpt = post.excerpt || '';
     const content = post.content || '';
-    const tags = post.tags || []; // Default to empty array if undefined
     
     return (
       title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      content.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
